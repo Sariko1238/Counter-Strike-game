@@ -1502,7 +1502,706 @@ class CSDust2Map {
   }
 }
 
+// ==========================================================================
+// AUTHENTIC DE_MINECRAFT (BLOCK WORLD & VOXEL BATTLEGROUND) 3D MAP ARCHITECTURE
+// ==========================================================================
+
+class CSMinecraftMap {
+  constructor(scene) {
+    this.scene = scene;
+    this.mapGroup = new THREE.Group();
+    this.colliders = []; // Array of THREE.Box3 for collision detection
+    this.platforms = []; // Array of { box: THREE.Box3, topY: number, isRamp: boolean }
+    this.portalMesh = null;
+    this.portalLight = null;
+
+    // Bombsite coordinates
+    this.bombsiteA = { x: 22, z: 26, radius: 8.5 }; // Raised Nether Portal Terrace & TNT Caches
+    this.bombsiteB = { x: -22, z: -16, radius: 8.5 }; // Mineshaft Quarry & Ore Bastion
+
+    // Spawn points
+    this.spawnPoints = {
+      ct: [
+        { x: 0, y: 0, z: 44 },
+        { x: 4, y: 0, z: 46 },
+        { x: -4, y: 0, z: 44 },
+        { x: 2, y: 0, z: 48 }
+      ],
+      t: [
+        { x: 0, y: 0, z: -52 },
+        { x: 4, y: 0, z: -54 },
+        { x: -4, y: 0, z: -52 },
+        { x: 2, y: 0, z: -50 }
+      ]
+    };
+
+    // Bot tactical navigation waypoints for de_minecraft
+    this.waypoints = [
+      // T Spawn (Pillager Outpost / Block Fort)
+      { id: 't_spawn', x: 0, z: -52, type: 'spawn_t' },
+      { id: 't_outpost_exit', x: -6, z: -42, type: 'path' },
+      { id: 't_mid_approach', x: 0, z: -36, type: 'path' },
+      { id: 't_valley_a', x: 16, z: -40, type: 'path' },
+
+      // Mid Village Crossroads
+      { id: 'mid_entry_t', x: 0, z: -20, type: 'choke' },
+      { id: 'mid_center', x: 0, z: 0, type: 'path' },
+      { id: 'mid_tree', x: -4, z: 2, type: 'path' },
+      { id: 'mid_entry_ct', x: 0, z: 22, type: 'choke' },
+
+      // Route to Bombsite A (Nether Portal Terrace)
+      { id: 'a_long_path', x: 22, z: -18, type: 'path' },
+      { id: 'a_ramp_approach', x: 24, z: 6, type: 'path' },
+      { id: 'a_terrace_steps', x: 22, z: 18, type: 'ramp' },
+      { id: 'site_a', x: 22, z: 26, type: 'bombsite' },
+      { id: 'a_portal_flank', x: 28, z: 34, type: 'path' },
+
+      // Route to Bombsite B (Mineshaft Quarry & Diamond Bastion)
+      { id: 'b_quarry_path', x: -22, z: -38, type: 'path' },
+      { id: 'b_cave_turn', x: -26, z: -26, type: 'path' },
+      { id: 'site_b', x: -22, z: -16, type: 'bombsite' },
+      { id: 'b_cabin_exit', x: -16, z: 6, type: 'choke' },
+
+      // CT Spawn (Village Townhall & Fortified Gate)
+      { id: 'ct_spawn', x: 0, z: 44, type: 'spawn_ct' },
+      { id: 'ct_to_a', x: 14, z: 34, type: 'path' },
+      { id: 'ct_to_b', x: -14, z: 28, type: 'path' }
+    ];
+
+    this.navConnections = {
+      t_spawn: ['t_outpost_exit', 't_mid_approach', 't_valley_a'],
+      t_outpost_exit: ['b_quarry_path', 'mid_entry_t'],
+      t_mid_approach: ['mid_entry_t', 't_valley_a'],
+      t_valley_a: ['a_long_path'],
+      mid_entry_t: ['mid_center', 'b_cave_turn'],
+      mid_center: ['mid_tree', 'mid_entry_ct', 'a_ramp_approach', 'b_cabin_exit'],
+      mid_tree: ['mid_center', 'b_cabin_exit'],
+      mid_entry_ct: ['ct_spawn', 'ct_to_a', 'ct_to_b'],
+      a_long_path: ['a_ramp_approach'],
+      a_ramp_approach: ['a_terrace_steps'],
+      a_terrace_steps: ['site_a'],
+      site_a: ['a_portal_flank', 'ct_to_a'],
+      a_portal_flank: ['site_a'],
+      b_quarry_path: ['b_cave_turn'],
+      b_cave_turn: ['site_b'],
+      site_b: ['b_cabin_exit', 'ct_to_b'],
+      b_cabin_exit: ['ct_to_b', 'mid_center'],
+      ct_spawn: ['ct_to_a', 'ct_to_b', 'mid_entry_ct'],
+      ct_to_a: ['site_a'],
+      ct_to_b: ['site_b']
+    };
+  }
+
+  destroy() {
+    if (this.mapGroup) {
+      this.scene.remove(this.mapGroup);
+    }
+    this.colliders = [];
+    this.platforms = [];
+  }
+
+  buildMap() {
+    this.mapGroup = new THREE.Group();
+    this.scene.add(this.mapGroup);
+    const origAdd = this.scene.add.bind(this.scene);
+    this.scene.add = (obj) => { this.mapGroup.add(obj); };
+
+    this.initMaterials();
+    this.createSky();
+    this.createLights();
+    this.createVoxelTerrain();
+    this.createPerimeterMountains();
+    this.buildVillageMid();            // Village Square with giant Oak Tree & Well
+    this.buildBombsiteA_NetherPortal(); // Bombsite A (Nether Portal Terrace & TNT Crate Fort)
+    this.buildBombsiteB_Mineshaft();    // Bombsite B (Quarry & Diamond Ore Bastion)
+    this.buildTSpawnFort();            // T Spawn Outpost
+    this.buildCTSpawnVillage();        // CT Spawn Townhall Gate
+    this.buildMinecraftTrees();        // Blocky Oak Trees throughout the map
+    this.buildTacticalProps();         // Stacked TNT, Crafting Tables, Torches
+
+    this.scene.add = origAdd;
+  }
+
+  initMaterials() {
+    const tex = window.csTextures;
+    // 1. Grass block multi-material
+    const grassTop = tex.getMinecraftGrassTopTexture();
+    const grassSide = tex.getMinecraftGrassSideTexture();
+    const dirt = tex.getMinecraftDirtTexture();
+
+    const grassSideMat = new THREE.MeshStandardMaterial({ map: grassSide, roughness: 0.9, metalness: 0.02 });
+    const grassTopMat = new THREE.MeshStandardMaterial({ map: grassTop, roughness: 0.85, metalness: 0.02 });
+    const dirtMat = new THREE.MeshStandardMaterial({ map: dirt, roughness: 0.95, metalness: 0.01 });
+
+    // Multi-material for cube: [right, left, top, bottom, front, back]
+    this.grassMatArray = [grassSideMat, grassSideMat, grassTopMat, dirtMat, grassSideMat, grassSideMat];
+    this.dirtMat = dirtMat;
+
+    // 2. Stone & Cobblestone
+    this.cobblestoneMat = new THREE.MeshStandardMaterial({
+      map: tex.getMinecraftCobblestoneTexture(),
+      roughness: 0.9,
+      metalness: 0.05
+    });
+
+    this.stoneBrickMat = new THREE.MeshStandardMaterial({
+      map: tex.getMinecraftStoneBrickTexture(),
+      roughness: 0.85,
+      metalness: 0.08
+    });
+
+    // 3. Wood Planks & Logs
+    this.oakPlanksMat = new THREE.MeshStandardMaterial({
+      map: tex.getMinecraftOakPlanksTexture(),
+      roughness: 0.8,
+      metalness: 0.02
+    });
+
+    const logSide = tex.getMinecraftOakLogSideTexture();
+    const logTop = tex.getMinecraftOakLogTopTexture();
+    const logSideMat = new THREE.MeshStandardMaterial({ map: logSide, roughness: 0.85 });
+    const logTopMat = new THREE.MeshStandardMaterial({ map: logTop, roughness: 0.85 });
+    this.logMatArray = [logSideMat, logSideMat, logTopMat, logTopMat, logSideMat, logSideMat];
+
+    // 4. Leaves
+    this.leavesMat = new THREE.MeshStandardMaterial({
+      map: tex.getMinecraftLeavesTexture(),
+      roughness: 0.9,
+      transparent: true,
+      alphaTest: 0.35,
+      side: THREE.DoubleSide
+    });
+
+    // 5. TNT
+    const tntSide = tex.getMinecraftTNTTexture();
+    const tntSideMat = new THREE.MeshStandardMaterial({ map: tntSide, roughness: 0.7 });
+    this.tntMatArray = [tntSideMat, tntSideMat, dirtMat, dirtMat, tntSideMat, tntSideMat];
+
+    // 6. Crafting Table
+    const craftSide = tex.getMinecraftCraftingTableTexture();
+    const craftSideMat = new THREE.MeshStandardMaterial({ map: craftSide, roughness: 0.75 });
+    this.craftMatArray = [craftSideMat, craftSideMat, this.oakPlanksMat, dirtMat, craftSideMat, craftSideMat];
+
+    // 7. Ores
+    this.diamondOreMat = new THREE.MeshStandardMaterial({
+      map: tex.getMinecraftDiamondOreTexture(),
+      roughness: 0.5,
+      metalness: 0.3,
+      emissive: 0x00ffff,
+      emissiveIntensity: 0.15
+    });
+
+    this.goldOreMat = new THREE.MeshStandardMaterial({
+      map: tex.getMinecraftGoldOreTexture(),
+      roughness: 0.5,
+      metalness: 0.35,
+      emissive: 0xffcc00,
+      emissiveIntensity: 0.12
+    });
+
+    // 8. Nether Portal
+    this.portalMat = new THREE.MeshBasicMaterial({
+      map: tex.getMinecraftPortalTexture(),
+      transparent: true,
+      opacity: 0.88,
+      side: THREE.DoubleSide
+    });
+
+    // 9. Obsidian
+    this.obsidianMat = new THREE.MeshStandardMaterial({
+      color: 0x181024,
+      roughness: 0.4,
+      metalness: 0.6
+    });
+  }
+
+  // 1. Minecraft Sky Dome with square clouds & square sun
+  createSky() {
+    const skyGeom = new THREE.SphereGeometry(180, 32, 16);
+    const skyMat = window.csTextures.getMinecraftSkyMaterial();
+    const sky = new THREE.Mesh(skyGeom, skyMat);
+    this.scene.add(sky);
+  }
+
+  // 2. Realistic Three.js Sunlight & Ambient Light
+  createLights() {
+    // Rich sky and grass bounce ambient illumination
+    const hemiLight = new THREE.HemisphereLight(0x73abff, 0x4c7828, 0.95);
+    hemiLight.position.set(0, 50, 0);
+    this.scene.add(hemiLight);
+
+    // Warm, crisp sunlight with cascading soft shadows
+    const sun = new THREE.DirectionalLight(0xfffaea, 1.25);
+    sun.position.set(40, 75, -30);
+    sun.castShadow = true;
+    sun.shadow.mapSize.width = 2048;
+    sun.shadow.mapSize.height = 2048;
+    sun.shadow.camera.near = 10;
+    sun.shadow.camera.far = 190;
+    sun.shadow.camera.left = -65;
+    sun.shadow.camera.right = 65;
+    sun.shadow.camera.top = 65;
+    sun.shadow.camera.bottom = -65;
+    sun.shadow.bias = -0.0004;
+    sun.shadow.normalBias = 0.02;
+    this.scene.add(sun);
+
+    // Atmospheric warm torch light
+    const torchLight = new THREE.PointLight(0xffaa33, 1.4, 25);
+    torchLight.position.set(0, 4.5, 0);
+    this.scene.add(torchLight);
+
+    // Mystic purple glow from Nether portal on Site A
+    const portalLight = new THREE.PointLight(0xaa00ff, 2.4, 30);
+    portalLight.position.set(22, 5, 26);
+    this.scene.add(portalLight);
+    this.portalLight = portalLight;
+  }
+
+  // Helper to add voxel blocks with collision registration
+  addBlock(x, y, z, sx = 2, sy = 2, sz = 2, type = 'grass', canWalkOnTop = true) {
+    let mat = this.cobblestoneMat;
+    if (type === 'grass') mat = this.grassMatArray;
+    else if (type === 'dirt') mat = this.dirtMat;
+    else if (type === 'stone_brick') mat = this.stoneBrickMat;
+    else if (type === 'wood') mat = this.oakPlanksMat;
+    else if (type === 'log') mat = this.logMatArray;
+    else if (type === 'leaves') mat = this.leavesMat;
+    else if (type === 'tnt') mat = this.tntMatArray;
+    else if (type === 'craft') mat = this.craftMatArray;
+    else if (type === 'diamond_ore') mat = this.diamondOreMat;
+    else if (type === 'gold_ore') mat = this.goldOreMat;
+    else if (type === 'obsidian') mat = this.obsidianMat;
+
+    const geom = new THREE.BoxGeometry(sx, sy, sz);
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.position.set(x, y + sy / 2, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.scene.add(mesh);
+
+    // Register Box3 collider
+    const box = new THREE.Box3();
+    box.setFromObject(mesh);
+    this.colliders.push(box);
+
+    if (canWalkOnTop) {
+      this.platforms.push({
+        box,
+        topY: y + sy,
+        isRamp: false
+      });
+    }
+
+    return mesh;
+  }
+
+  // Add ramp/stair helper for smooth bot & player climbing
+  addStairs(x, y, z, w, h, d, type = 'stone_brick') {
+    const steps = 4;
+    const stepH = h / steps;
+    const stepD = d / steps;
+    for (let i = 0; i < steps; i++) {
+      const stepY = y + i * stepH;
+      const stepZ = z - (d / 2) + (i + 0.5) * stepD;
+      this.addBlock(x, stepY, stepZ, w, stepH, stepD, type, true);
+    }
+
+    // Also register smooth ramp bounding box for physics
+    const rampBox = new THREE.Box3(
+      new THREE.Vector3(x - w / 2, y, z - d / 2),
+      new THREE.Vector3(x + w / 2, y + h, z + d / 2)
+    );
+    this.platforms.push({
+      box: rampBox,
+      topY: y + h,
+      isRamp: true,
+      minZ: z - d / 2,
+      maxZ: z + d / 2,
+      minY: y,
+      maxY: y + h
+    });
+  }
+
+  // 3. Main Voxel Landscape Ground
+  createVoxelTerrain() {
+    // Vast grassy main plane
+    const groundGeom = new THREE.PlaneGeometry(160, 160, 1, 1);
+    const grassTopTex = window.csTextures.getMinecraftGrassTopTexture();
+    const groundMat = new THREE.MeshStandardMaterial({
+      map: grassTopTex,
+      roughness: 0.9,
+      metalness: 0.01
+    });
+    // Repeat grass texture across the map
+    grassTopTex.repeat.set(80, 80);
+    grassTopTex.wrapS = THREE.RepeatWrapping;
+    grassTopTex.wrapT = THREE.RepeatWrapping;
+
+    const ground = new THREE.Mesh(groundGeom, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = 0;
+    ground.receiveShadow = true;
+    this.scene.add(ground);
+
+    // Cobblestone Pathways connecting Spawns, Mid, Site A and Site B
+    const createPath = (x, z, w, d) => {
+      const cobbleTex = window.csTextures.getMinecraftCobblestoneTexture();
+      cobbleTex.repeat.set(w / 2, d / 2);
+      cobbleTex.wrapS = THREE.RepeatWrapping;
+      cobbleTex.wrapT = THREE.RepeatWrapping;
+      const pMat = new THREE.MeshStandardMaterial({ map: cobbleTex, roughness: 0.85 });
+      const pGeom = new THREE.PlaneGeometry(w, d);
+      const pMesh = new THREE.Mesh(pGeom, pMat);
+      pMesh.rotation.x = -Math.PI / 2;
+      pMesh.position.set(x, 0.02, z);
+      pMesh.receiveShadow = true;
+      this.scene.add(pMesh);
+    };
+
+    // Central Mid Highway
+    createPath(0, 0, 8, 50);
+    // Path to Site A (Long)
+    createPath(14, 10, 20, 6);
+    // Path to Site B (Quarry lane)
+    createPath(-14, -10, 20, 6);
+    // Spawns access roads
+    createPath(0, 36, 10, 16);
+    createPath(0, -42, 10, 16);
+  }
+
+  // 4. Stepped Perimeter Mountains (Enclosing the map naturally with blocks)
+  createPerimeterMountains() {
+    const wallHeight = 8;
+    // North wall (Z = -68)
+    for (let x = -60; x <= 60; x += 6) {
+      this.addBlock(x, 0, -68, 6, wallHeight, 6, 'stone_brick');
+      this.addBlock(x, wallHeight, -68, 6, 4, 6, 'grass');
+    }
+    // South wall (Z = +68)
+    for (let x = -60; x <= 60; x += 6) {
+      this.addBlock(x, 0, 68, 6, wallHeight, 6, 'stone_brick');
+      this.addBlock(x, wallHeight, 68, 6, 4, 6, 'grass');
+    }
+    // West wall (X = -48)
+    for (let z = -64; z <= 64; z += 6) {
+      this.addBlock(-48, 0, z, 6, wallHeight, 6, 'stone_brick');
+      this.addBlock(-48, wallHeight, z, 6, 4, 6, 'grass');
+    }
+    // East wall (X = +48)
+    for (let z = -64; z <= 64; z += 6) {
+      this.addBlock(48, 0, z, 6, wallHeight, 6, 'stone_brick');
+      this.addBlock(48, wallHeight, z, 6, 4, 6, 'grass');
+    }
+  }
+
+  // 5. Mid Village Crossroads (Giant Oak Tree, Well, Houses & Cover)
+  buildVillageMid() {
+    // Central Village Well (Cobblestone with water inside)
+    this.addBlock(0, 0, 0, 4, 1.2, 4, 'cobblestone');
+    // Well corner posts
+    this.addBlock(-1.6, 1.2, -1.6, 0.8, 2.4, 0.8, 'wood');
+    this.addBlock(1.6, 1.2, -1.6, 0.8, 2.4, 0.8, 'wood');
+    this.addBlock(-1.6, 1.2, 1.6, 0.8, 2.4, 0.8, 'wood');
+    this.addBlock(1.6, 1.2, 1.6, 0.8, 2.4, 0.8, 'wood');
+    // Well roof
+    this.addBlock(0, 3.6, 0, 5, 0.8, 5, 'wood');
+
+    // Giant Mid Oak Tree (at x: -6, z: 6)
+    this.buildSingleTree(-6, 6, 8, 4);
+
+    // Mid Tactical Cover Walls (crouch & peek cover)
+    this.addBlock(8, 0, -4, 4, 1.4, 1.4, 'cobblestone');
+    this.addBlock(8, 0, 4, 4, 1.4, 1.4, 'cobblestone');
+    this.addBlock(-10, 0, -4, 4, 1.4, 1.4, 'wood');
+
+    // Mid to A connector archway
+    this.addBlock(16, 0, -2, 2, 4.5, 2, 'stone_brick');
+    this.addBlock(16, 0, 6, 2, 4.5, 2, 'stone_brick');
+    this.addBlock(16, 4.5, 2, 2, 1.5, 10, 'wood');
+
+    // Mid to B connector covered tunnel wall
+    this.addBlock(-18, 0, -2, 2, 4.5, 2, 'cobblestone');
+    this.addBlock(-18, 0, 6, 2, 4.5, 2, 'cobblestone');
+    this.addBlock(-18, 4.5, 2, 2, 1.5, 10, 'wood');
+  }
+
+  // 6. Bombsite A: The Nether Portal Terrace & TNT Caches
+  buildBombsiteA_NetherPortal() {
+    const siteX = 22;
+    const siteZ = 26;
+
+    // Raised terrace platform (2 meters tall, 16x16 wide)
+    this.addBlock(siteX, 0, siteZ, 16, 2, 16, 'stone_brick');
+
+    // Access stairs from A-Long and CT approach
+    this.addStairs(siteX, 0, siteZ - 10, 4, 2, 4, 'stone_brick');
+    this.addStairs(siteX - 10, 0, siteZ, 4, 2, 4, 'stone_brick');
+
+    // Massive Obsidian Nether Portal (X: 22, Z: 32)
+    // Left & Right Pillars (Obsidian)
+    this.addBlock(siteX - 3, 2, siteZ + 6, 1.6, 6.4, 1.6, 'obsidian');
+    this.addBlock(siteX + 3, 2, siteZ + 6, 1.6, 6.4, 1.6, 'obsidian');
+    // Top & Bottom Obsidian lintel
+    this.addBlock(siteX, 2, siteZ + 6, 4.4, 1.2, 1.6, 'obsidian');
+    this.addBlock(siteX, 7.2, siteZ + 6, 7.6, 1.2, 1.6, 'obsidian');
+
+    // Mystic Glowing Purple Portal Vortex
+    const portalGeom = new THREE.PlaneGeometry(4.4, 4.2);
+    const portalMesh = new THREE.Mesh(portalGeom, this.portalMat);
+    portalMesh.position.set(siteX, 5.2, siteZ + 6);
+    this.scene.add(portalMesh);
+    this.portalMesh = portalMesh;
+
+    // Tactical Bomb Site Cover: Stacked TNT & Chests
+    this.addBlock(siteX - 4, 2, siteZ - 2, 2, 2, 2, 'tnt');
+    this.addBlock(siteX - 2, 2, siteZ - 2, 2, 2, 2, 'tnt');
+    this.addBlock(siteX - 3, 4, siteZ - 2, 2, 2, 2, 'tnt');
+
+    // Oak Wood Crates & Crafting Table cover
+    this.addBlock(siteX + 4, 2, siteZ - 3, 2, 2, 2, 'craft');
+    this.addBlock(siteX + 4, 2, siteZ - 1, 2, 2, 2, 'wood');
+
+    // Defensive Stone Rampart Walls
+    this.addBlock(siteX + 7, 2, siteZ, 1.2, 1.8, 12, 'cobblestone');
+    this.addBlock(siteX, 2, siteZ + 7, 12, 1.8, 1.2, 'cobblestone');
+
+    // Red "A" Site Decal Banner
+    const bannerCanvas = document.createElement('canvas');
+    bannerCanvas.width = 128;
+    bannerCanvas.height = 128;
+    const bctx = bannerCanvas.getContext('2d');
+    bctx.fillStyle = '#b71c1c';
+    bctx.fillRect(0, 0, 128, 128);
+    bctx.fillStyle = '#ffffff';
+    bctx.font = 'bold 88px monospace';
+    bctx.textAlign = 'center';
+    bctx.textBaseline = 'middle';
+    bctx.fillText('A', 64, 64);
+    const bTex = new THREE.CanvasTexture(bannerCanvas);
+    const bMat = new THREE.MeshBasicMaterial({ map: bTex, side: THREE.DoubleSide });
+    const bMesh = new THREE.Mesh(new THREE.PlaneGeometry(3, 3), bMat);
+    bMesh.position.set(siteX, 2.05, siteZ);
+    bMesh.rotation.x = -Math.PI / 2;
+    this.scene.add(bMesh);
+  }
+
+  // 7. Bombsite B: The Mineshaft & Diamond Ore Bastion
+  buildBombsiteB_Mineshaft() {
+    const siteX = -22;
+    const siteZ = -16;
+
+    // Sunken Quarry Pit with Cobblestone Wall Surrounds
+    this.addBlock(siteX, 0, siteZ, 16, 0.4, 16, 'cobblestone');
+
+    // Mineshaft Wooden Headframe & Support Beams
+    this.addBlock(siteX - 5, 0, siteZ - 5, 1.2, 6, 1.2, 'log');
+    this.addBlock(siteX + 5, 0, siteZ - 5, 1.2, 6, 1.2, 'log');
+    this.addBlock(siteX - 5, 0, siteZ + 5, 1.2, 6, 1.2, 'log');
+    this.addBlock(siteX + 5, 0, siteZ + 5, 1.2, 6, 1.2, 'log');
+    // Top cross beams
+    this.addBlock(siteX, 6, siteZ - 5, 11.2, 1.2, 1.2, 'wood');
+    this.addBlock(siteX, 6, siteZ + 5, 11.2, 1.2, 1.2, 'wood');
+    this.addBlock(siteX - 5, 6, siteZ, 1.2, 1.2, 11.2, 'wood');
+    this.addBlock(siteX + 5, 6, siteZ, 1.2, 1.2, 11.2, 'wood');
+
+    // Rare Ore Vein Block Formations (Diamond & Gold Ores!)
+    this.addBlock(siteX - 6, 0, siteZ - 2, 2, 2, 2, 'diamond_ore');
+    this.addBlock(siteX - 6, 2, siteZ - 2, 2, 2, 2, 'diamond_ore');
+    this.addBlock(siteX - 6, 0, siteZ, 2, 2, 2, 'gold_ore');
+    this.addBlock(siteX + 6, 0, siteZ + 2, 2, 2, 2, 'diamond_ore');
+
+    // Tactical Bomb Site Cover: Stacked TNT & Stone Crates
+    this.addBlock(siteX + 3, 0, siteZ - 3, 2, 2, 2, 'tnt');
+    this.addBlock(siteX + 3, 0, siteZ - 1, 2, 2, 2, 'tnt');
+    this.addBlock(siteX + 3, 2, siteZ - 2, 2, 2, 2, 'tnt');
+
+    this.addBlock(siteX - 2, 0, siteZ + 3, 2, 2, 2, 'cobblestone');
+    this.addBlock(siteX, 0, siteZ + 3, 2, 2, 2, 'craft');
+
+    // Blue "B" Site Decal Banner
+    const bannerCanvas = document.createElement('canvas');
+    bannerCanvas.width = 128;
+    bannerCanvas.height = 128;
+    const bctx = bannerCanvas.getContext('2d');
+    bctx.fillStyle = '#0d47a1';
+    bctx.fillRect(0, 0, 128, 128);
+    bctx.fillStyle = '#ffffff';
+    bctx.font = 'bold 88px monospace';
+    bctx.textAlign = 'center';
+    bctx.textBaseline = 'middle';
+    bctx.fillText('B', 64, 64);
+    const bTex = new THREE.CanvasTexture(bannerCanvas);
+    const bMat = new THREE.MeshBasicMaterial({ map: bTex, side: THREE.DoubleSide });
+    const bMesh = new THREE.Mesh(new THREE.PlaneGeometry(3, 3), bMat);
+    bMesh.position.set(siteX, 0.45, siteZ);
+    bMesh.rotation.x = -Math.PI / 2;
+    this.scene.add(bMesh);
+  }
+
+  // 8. T Spawn Outpost (Pillager Fort & Watchtower)
+  buildTSpawnFort() {
+    const spX = 0;
+    const spZ = -52;
+
+    // Outpost Base walls
+    this.addBlock(spX - 10, 0, spZ, 2, 4, 12, 'cobblestone');
+    this.addBlock(spX + 10, 0, spZ, 2, 4, 12, 'cobblestone');
+
+    // Watchtower at rear
+    this.addBlock(spX, 0, spZ - 8, 6, 8, 6, 'wood');
+    this.addBlock(spX, 8, spZ - 8, 7, 1.2, 7, 'cobblestone');
+
+    // Cover blocks in spawn
+    this.addBlock(spX - 4, 0, spZ + 4, 2, 2, 2, 'craft');
+    this.addBlock(spX + 4, 0, spZ + 4, 2, 2, 2, 'wood');
+  }
+
+  // 9. CT Spawn (Village Townhall & Fortified Gate)
+  buildCTSpawnVillage() {
+    const spX = 0;
+    const spZ = 44;
+
+    // Gatehouse pillars
+    this.addBlock(spX - 8, 0, spZ, 3, 6, 3, 'stone_brick');
+    this.addBlock(spX + 8, 0, spZ, 3, 6, 3, 'stone_brick');
+    // Gate arch
+    this.addBlock(spX, 5, spZ, 16, 1.5, 3, 'wood');
+
+    // Village Houses (left and right)
+    this.addBlock(spX - 14, 0, spZ + 6, 8, 4.5, 8, 'wood');
+    this.addBlock(spX + 14, 0, spZ + 6, 8, 4.5, 8, 'wood');
+
+    // Cover crates in spawn
+    this.addBlock(spX - 4, 0, spZ - 3, 2, 2, 2, 'wood');
+    this.addBlock(spX + 4, 0, spZ - 3, 2, 2, 2, 'cobblestone');
+  }
+
+  // Helper for creating a Minecraft Oak Tree
+  buildSingleTree(x, z, trunkHeight = 6, canopyRadius = 3) {
+    // 1. Trunk (Oak Logs)
+    for (let y = 0; y < trunkHeight; y += 2) {
+      this.addBlock(x, y, z, 2, 2, 2, 'log', false);
+    }
+
+    // 2. Canopy Layers (Oak Leaves)
+    const baseY = trunkHeight - 2;
+    // Lower 5x5 canopy layer
+    for (let lx = -canopyRadius; lx <= canopyRadius; lx += 2) {
+      for (let lz = -canopyRadius; lz <= canopyRadius; lz += 2) {
+        if (Math.abs(lx) === canopyRadius && Math.abs(lz) === canopyRadius) continue; // Rounded corners
+        this.addBlock(x + lx, baseY, z + lz, 2, 2, 2, 'leaves', true);
+      }
+    }
+    // Mid 3x3 canopy layer
+    for (let lx = -2; lx <= 2; lx += 2) {
+      for (let lz = -2; lz <= 2; lz += 2) {
+        this.addBlock(x + lx, baseY + 2, z + lz, 2, 2, 2, 'leaves', true);
+      }
+    }
+    // Top 1x1 leaf cap
+    this.addBlock(x, baseY + 4, z, 2, 2, 2, 'leaves', true);
+  }
+
+  // 10. Spread Minecraft Trees throughout the map
+  buildMinecraftTrees() {
+    const treeLocs = [
+      [14, -28], [24, -34], [-12, -32], [-28, -2],
+      [-16, 18], [12, 18], [26, 8], [-8, 32], [20, 42]
+    ];
+    for (const [tx, tz] of treeLocs) {
+      this.buildSingleTree(tx, tz, 5 + Math.floor(Math.random() * 2), 2.5);
+    }
+  }
+
+  // 11. Tactical Props (Stacked TNT, Crafting Tables, Lanterns)
+  buildTacticalProps() {
+    const props = [
+      { x: -14, z: -8, type: 'tnt' },
+      { x: 14, z: 2, type: 'tnt' },
+      { x: -6, z: -18, type: 'craft' },
+      { x: 8, z: 12, type: 'craft' },
+      { x: 0, z: -32, type: 'wood' },
+      { x: 0, z: 30, type: 'wood' }
+    ];
+    for (const p of props) {
+      this.addBlock(p.x, 0, p.z, 2, 2, 2, p.type);
+    }
+  }
+
+  // Height query helper for gravity and jumping
+  getGroundHeight(x, z, currentY = 0) {
+    let highestGround = 0; // Flat ground level is 0
+    const testPoint = new THREE.Vector2(x, z);
+
+    for (let i = 0; i < this.platforms.length; i++) {
+      const plat = this.platforms[i];
+      const box = plat.box;
+
+      if (x >= box.min.x - 0.25 && x <= box.max.x + 0.25 &&
+          z >= box.min.z - 0.25 && z <= box.max.z + 0.25) {
+
+        if (plat.isRamp) {
+          const t = Math.max(0, Math.min(1, (z - plat.minZ) / (plat.maxZ - plat.minZ)));
+          const rampY = plat.minY + t * (plat.maxY - plat.minY);
+          if (rampY > highestGround) {
+            highestGround = rampY;
+          }
+        } else {
+          // Only step onto platform if character is roughly near or above its top/base
+          if (currentY >= box.min.y - 0.5 && plat.topY > highestGround) {
+            highestGround = plat.topY;
+          }
+        }
+      }
+    }
+
+    return highestGround;
+  }
+
+  // Collision detection helper
+  checkCollision(position, radius = 0.42, feetY = null) {
+    const sphere = new THREE.Sphere(position, radius);
+    for (let i = 0; i < this.colliders.length; i++) {
+      const box = this.colliders[i];
+      // Skip platforms that are below character feet
+      if (feetY !== null && box.max.y <= feetY + 0.35) {
+        continue;
+      }
+      if (box.intersectsSphere(sphere)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  getNearestWaypoint(x, z) {
+    let nearest = null;
+    let minDist = Infinity;
+    for (const wp of this.waypoints) {
+      const d = Math.hypot(wp.x - x, wp.z - z);
+      if (d < minDist) {
+        minDist = d;
+        nearest = wp;
+      }
+    }
+    return nearest;
+  }
+
+  // Dynamic animation update for glowing Nether Portal
+  update(delta) {
+    if (this.portalMesh) {
+      const t = performance.now() * 0.003;
+      this.portalMesh.material.opacity = 0.75 + Math.sin(t) * 0.18;
+      if (this.portalLight) {
+        this.portalLight.intensity = 2.0 + Math.sin(t * 1.5) * 0.7;
+      }
+    }
+  }
+}
+
 // Global exposure
 window.CSBeachMap = CSBeachMap;
 window.CSDust2Map = CSDust2Map;
+window.CSMinecraftMap = CSMinecraftMap;
 
