@@ -91,8 +91,19 @@
         </div>
       </div>
 
-      <!-- Top Right: Killfeed -->
-      <div id="killfeed"></div>
+      <!-- Top Right: Minimap / Radar on the Right & Killfeed -->
+      <div class="hud-top-right">
+        <!-- Radar (Minimap on Right) -->
+        <div id="radar-container">
+          <canvas id="radar-canvas" width="160" height="160"></canvas>
+          <div class="radar-scanline"></div>
+          <div class="radar-compass-n">N</div>
+          <div class="radar-site-label site-a">A</div>
+          <div class="radar-site-label site-b">B</div>
+        </div>
+        <!-- Killfeed (underneath radar) -->
+        <div id="killfeed"></div>
+      </div>
     </div>
 
     <!-- Center Screen Alerts (Headshot, Announcements, Radio, Elimination) -->

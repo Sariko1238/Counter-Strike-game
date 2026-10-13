@@ -1324,12 +1324,12 @@ class CSGame {
     ind.classList.add('active');
   }
 
-  // 2D Mini-Radar Rendering
+  // 2D Tactical Minimap / Radar Rendering (Positioned top-right)
   renderRadar() {
     const ctx = this.radarCtx;
     if (!ctx) return;
-    const w = 160;
-    const h = 160;
+    const w = this.radarCanvas.width || 170;
+    const h = this.radarCanvas.height || 170;
     ctx.clearRect(0, 0, w, h);
 
     const centerX = w / 2;
@@ -1344,70 +1344,99 @@ class CSGame {
       : (this.spectatingBot && typeof this.spectatingBot.rotationY === 'number' ? this.spectatingBot.rotationY : 0);
     const pTeam = (this.player && this.player.team) ? this.player.team : this.playerTeam;
 
+    // 1. Radar Range Rings & Crosshairs
+    ctx.strokeStyle = 'rgba(0, 255, 102, 0.16)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 32, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY, 64, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(centerX, 0); ctx.lineTo(centerX, h);
+    ctx.moveTo(0, centerY); ctx.lineTo(w, centerY);
+    ctx.stroke();
+
     ctx.save();
     ctx.translate(centerX, centerY);
-    // Rotate radar with player or spectator yaw
+    // Rotate radar with player or spectator yaw so top of radar is forward
     ctx.rotate(pYaw);
 
-    // Draw Bomb Sites
+    // 2. Draw Map Wall Colliders on Radar
+    if (this.map && this.map.colliders && Array.isArray(this.map.colliders)) {
+      ctx.fillStyle = 'rgba(0, 255, 102, 0.18)';
+      ctx.strokeStyle = 'rgba(0, 255, 102, 0.35)';
+      ctx.lineWidth = 0.8;
+      for (let i = 0; i < this.map.colliders.length; i++) {
+        const box = this.map.colliders[i];
+        const minX = (box.min.x - pPos.x) * scale;
+        const maxX = (box.max.x - pPos.x) * scale;
+        const minZ = (box.min.z - pPos.z) * scale;
+        const maxZ = (box.max.z - pPos.z) * scale;
+        const boxDist = Math.hypot((minX + maxX) / 2, (minZ + maxZ) / 2);
+        if (boxDist > 90) continue;
+        ctx.fillRect(minX, minZ, maxX - minX, maxZ - minZ);
+        ctx.strokeRect(minX, minZ, maxX - minX, maxZ - minZ);
+      }
+    }
+
+    // 3. Draw Bomb Sites
     if (this.map && this.map.bombsiteA && this.map.bombsiteB) {
       const aX = (this.map.bombsiteA.x - pPos.x) * scale;
       const aZ = (this.map.bombsiteA.z - pPos.z) * scale;
-      ctx.fillStyle = '#ff4444';
-      ctx.font = 'bold 12px monospace';
+      ctx.fillStyle = '#ff3333';
+      ctx.font = 'bold 12px "Share Tech Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       ctx.fillText('A', aX, aZ);
 
       const bX = (this.map.bombsiteB.x - pPos.x) * scale;
       const bZ = (this.map.bombsiteB.z - pPos.z) * scale;
+      ctx.fillStyle = '#3388ff';
       ctx.fillText('B', bX, bZ);
     }
 
-    // Draw Planted Bomb (blinking red / gold)
+    // 4. Draw Planted Bomb (blinking red / gold)
     if (this.isBombPlanted && this.plantedBombPos) {
       const pbx = (this.plantedBombPos.x - pPos.x) * scale;
       const pbz = (this.plantedBombPos.z - pPos.z) * scale;
-      const blink = (Math.sin(Date.now() * 0.012) > 0);
+      const blink = (Math.sin(Date.now() * 0.015) > 0);
       ctx.fillStyle = blink ? '#ff0033' : '#ffff00';
       ctx.beginPath();
       ctx.arc(pbx, pbz, 5, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 10px sans-serif';
-      ctx.fillText('💣', pbx - 6, pbz + 4);
     }
 
-    // Draw Dropped Bomb (blinking orange / yellow)
+    // 5. Draw Dropped Bomb (blinking orange / yellow)
     if (this.droppedBombPos && !this.isBombPlanted) {
       const dbx = (this.droppedBombPos.x - pPos.x) * scale;
       const dbz = (this.droppedBombPos.z - pPos.z) * scale;
-      const blink = (Math.sin(Date.now() * 0.009) > 0);
+      const blink = (Math.sin(Date.now() * 0.01) > 0);
       ctx.fillStyle = blink ? '#ff8800' : '#ffff33';
       ctx.beginPath();
       ctx.arc(dbx, dbz, 4.5, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#000000';
-      ctx.font = 'bold 9px monospace';
-      ctx.fillText('C4', dbx - 6, dbz + 3);
     }
 
-    // Draw Bots
+    // 6. Draw Bots
     if (this.bots && Array.isArray(this.bots)) {
       this.bots.forEach(b => {
         if (!b || b.isDead || !b.position) return;
         const bx = (b.position.x - pPos.x) * scale;
         const bz = (b.position.z - pPos.z) * scale;
+        if (Math.hypot(bx, bz) > 80) return;
 
         if (b.team === pTeam) {
-          // Teammates: bright green dot
-          ctx.fillStyle = '#00ff66';
+          // Teammate: bright green dot
+          ctx.fillStyle = '#00ff88';
           ctx.beginPath();
           ctx.arc(bx, bz, 3.5, 0, Math.PI * 2);
           ctx.fill();
         } else {
-          // Enemies: red dot if engaged or close
+          // Enemy: red dot
           ctx.fillStyle = '#ff2222';
           ctx.beginPath();
-          ctx.arc(bx, bz, 3, 0, Math.PI * 2);
+          ctx.arc(bx, bz, 3.2, 0, Math.PI * 2);
           ctx.fill();
         }
       });
@@ -1415,14 +1444,30 @@ class CSGame {
 
     ctx.restore();
 
-    // Player arrow in center (pointing forward)
-    ctx.fillStyle = '#ffaa00';
+    // 7. Player Vision Cone & Center Arrow
+    ctx.save();
+    const coneGrad = ctx.createRadialGradient(centerX, centerY, 4, centerX, centerY, 46);
+    coneGrad.addColorStop(0, 'rgba(0, 255, 102, 0.28)');
+    coneGrad.addColorStop(1, 'rgba(0, 255, 102, 0)');
+    ctx.fillStyle = coneGrad;
     ctx.beginPath();
-    ctx.moveTo(centerX, centerY - 6);
+    ctx.moveTo(centerX, centerY);
+    ctx.arc(centerX, centerY, 46, -Math.PI / 2 - 0.42, -Math.PI / 2 + 0.42);
+    ctx.closePath();
+    ctx.fill();
+
+    // Center Player Arrow (pointing forward)
+    ctx.fillStyle = '#ffbb00';
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY - 7);
     ctx.lineTo(centerX - 5, centerY + 5);
     ctx.lineTo(centerX + 5, centerY + 5);
     ctx.closePath();
     ctx.fill();
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
   }
 
   // Main Loop
