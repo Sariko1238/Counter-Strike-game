@@ -812,6 +812,134 @@ class CSBot {
     }
   }
 
+  // Collision-aware physics movement (prevents bots from clipping through textures, walls, or props)
+  moveWithCollision(vx, vz, delta) {
+    if (this.isDead || !this.position) return;
+    const botRadius = 0.38;
+    const currentFeetY = this.position.y;
+
+    // 1. Separation / Anti-crowding with other bots and player so bots don't merge/overlap
+    let sepX = 0;
+    let sepZ = 0;
+    if (window.csGame) {
+      if (window.csGame.bots) {
+        for (const other of window.csGame.bots) {
+          if (other === this || other.isDead || !other.position) continue;
+          const ox = this.position.x - other.position.x;
+          const oz = this.position.z - other.position.z;
+          const d = Math.hypot(ox, oz);
+          if (d > 0.001 && d < 0.75) {
+            const push = (0.75 - d) * 2.2;
+            sepX += (ox / d) * push;
+            sepZ += (oz / d) * push;
+          }
+        }
+      }
+      if (window.csGame.player && window.csGame.player.position && !window.csGame.player.isDead) {
+        const px = this.position.x - window.csGame.player.position.x;
+        const pz = this.position.z - window.csGame.player.position.z;
+        const pd = Math.hypot(px, pz);
+        if (pd > 0.001 && pd < 0.85) {
+          const push = (0.85 - pd) * 2.5;
+          sepX += (px / pd) * push;
+          sepZ += (pz / pd) * push;
+        }
+      }
+    }
+
+    const totalVx = vx + sepX;
+    const totalVz = vz + sepZ;
+    const dx = totalVx * delta;
+    const dz = totalVz * delta;
+
+    // 2. Sliding Collision with World Colliders (Walls, Boxes, Textures, Obstacles)
+    // Test X axis movement
+    if (Math.abs(dx) > 0.0001) {
+      const testX = { x: this.position.x + dx, y: this.position.y, z: this.position.z };
+      const blockedX = this.map && typeof this.map.checkCollision === 'function'
+        ? this.map.checkCollision(testX, botRadius, currentFeetY)
+        : false;
+      if (!blockedX) {
+        this.position.x += dx;
+      } else {
+        this.velocity.x = 0;
+        // Slide / nudge along perpendicular axis
+        this.position.z += (Math.random() > 0.5 ? 1 : -1) * 0.35 * delta;
+      }
+    }
+
+    // Test Z axis movement
+    if (Math.abs(dz) > 0.0001) {
+      const testZ = { x: this.position.x, y: this.position.y, z: this.position.z + dz };
+      const blockedZ = this.map && typeof this.map.checkCollision === 'function'
+        ? this.map.checkCollision(testZ, botRadius, currentFeetY)
+        : false;
+      if (!blockedZ) {
+        this.position.z += dz;
+      } else {
+        this.velocity.z = 0;
+        this.position.x += (Math.random() > 0.5 ? 1 : -1) * 0.35 * delta;
+      }
+    }
+
+    // 3. Platform & Ground Height (Ramps, steps, block platforms)
+    if (this.map && typeof this.map.getGroundHeight === 'function') {
+      const groundY = this.map.getGroundHeight(this.position.x, this.position.z, this.position.y);
+      if (groundY > this.position.y) {
+        // Step onto low stairs/blocks or ramps
+        if (groundY - this.position.y <= 0.75) {
+          this.position.y = THREE.MathUtils.lerp(this.position.y, groundY, 0.45);
+        }
+      } else if (this.position.y > groundY) {
+        // Gravity fall
+        this.position.y = Math.max(groundY, this.position.y - 12.0 * delta);
+      }
+    } else {
+      this.position.y = 0;
+    }
+
+    // 4. Map Boundary Clamping
+    this.position.x = Math.max(-72, Math.min(72, this.position.x));
+    this.position.z = Math.max(-72, Math.min(72, this.position.z));
+
+    // 5. Tactical footstep sounds when running near player
+    if (Math.hypot(totalVx, totalVz) > 1.2) {
+      this.footstepTimer = (this.footstepTimer || 0) + delta;
+      if (this.footstepTimer > 0.38) {
+        this.footstepTimer = 0;
+        if (window.csGame && window.csGame.player && window.csGame.player.position && !window.csGame.player.isDead) {
+          const distToPlayer = this.position.distanceTo(window.csGame.player.position);
+          if (distToPlayer < 18 && window.csAudio && typeof window.csAudio.playFootstep === 'function') {
+            const surface = (this.map && window.CSMinecraftMap && this.map instanceof window.CSMinecraftMap) ? 'wood' : 'sand';
+            window.csAudio.playFootstep(surface);
+          }
+        }
+      }
+    }
+
+    // 6. Anti-stuck watchdog: If attempting to move but stuck for > 0.8s, repath
+    if (Math.hypot(vx, vz) > 1.0) {
+      if (!this.lastMovePos) this.lastMovePos = this.position.clone();
+      const movedDist = this.lastMovePos.distanceTo(this.position);
+      this.stuckTimer = (this.stuckTimer || 0) + delta;
+      if (this.stuckTimer > 0.75) {
+        if (movedDist < 0.12) {
+          // Bot is physically stuck against corner or obstacle -> jump/sidestep & pick new route
+          this.position.x += (Math.random() - 0.5) * 0.8;
+          this.position.z += (Math.random() - 0.5) * 0.8;
+          if (this.state === 'PATROL') {
+            this.pickNextPatrolDestination();
+          }
+        }
+        this.stuckTimer = 0;
+        this.lastMovePos.copy(this.position);
+      }
+    }
+
+    // Sync 3D Mesh
+    this.meshGroup.position.copy(this.position);
+  }
+
   hasLineOfSight(targetPos) {
     if (!targetPos || typeof targetPos.x !== 'number' || typeof targetPos.z !== 'number') return false;
     const startY = this.position.y + (this.isCrouching ? 1.05 : 1.45);
@@ -830,7 +958,8 @@ class CSBot {
         if (box.max.y <= Math.min(startY, targetY) - 0.25) continue;
         if (ray.intersectBox(box, hitPoint)) {
           const distToHit = from.distanceTo(hitPoint);
-          if (distToHit > 0.6 && distToHit < distToTarget - 0.5) {
+          // Solid obstacle blocks raycast if intersection is between bot and target
+          if (distToHit > 0.15 && distToHit < distToTarget - 0.15) {
             return false;
           }
         }
@@ -931,9 +1060,7 @@ class CSBot {
         this.targetRotationY = Math.atan2(dx, dz) + Math.PI;
         const dir = new THREE.Vector3(dx, 0, dz).normalize();
         this.velocity.copy(dir).multiplyScalar(this.getCurrentSpeed());
-        this.position.x += this.velocity.x * delta;
-        this.position.z += this.velocity.z * delta;
-        this.meshGroup.position.copy(this.position);
+        this.moveWithCollision(this.velocity.x, this.velocity.z, delta);
         return;
       } else {
         window.csGame.pickUpBomb(this);
@@ -984,9 +1111,7 @@ class CSBot {
 
     this.targetRotationY = Math.atan2(finalDir.x, finalDir.z) + Math.PI;
     this.velocity.copy(finalDir).multiplyScalar(this.getCurrentSpeed());
-    this.position.x += this.velocity.x * delta;
-    this.position.z += this.velocity.z * delta;
-    this.meshGroup.position.copy(this.position);
+    this.moveWithCollision(this.velocity.x, this.velocity.z, delta);
   }
 
   computeObstacleAvoidance(desiredDir) {
@@ -1078,9 +1203,7 @@ class CSBot {
       }
 
       this.velocity.copy(moveVec).multiplyScalar(this.getCurrentSpeed() * 0.75);
-      this.position.x += this.velocity.x * delta;
-      this.position.z += this.velocity.z * delta;
-      this.meshGroup.position.copy(this.position);
+      this.moveWithCollision(this.velocity.x, this.velocity.z, delta);
     }
 
     // Firing execution
@@ -1174,9 +1297,7 @@ class CSBot {
       const evadeDir = new THREE.Vector3().addVectors(side, back).normalize();
 
       this.velocity.copy(evadeDir).multiplyScalar(this.getCurrentSpeed() * 0.95);
-      this.position.x += this.velocity.x * delta;
-      this.position.z += this.velocity.z * delta;
-      this.meshGroup.position.copy(this.position);
+      this.moveWithCollision(this.velocity.x, this.velocity.z, delta);
     }
   }
 
@@ -1348,9 +1469,7 @@ class CSBot {
       const dir = new THREE.Vector3(dx, 0, dz).normalize();
       this.targetRotationY = Math.atan2(dx, dz) + Math.PI;
       this.velocity.copy(dir).multiplyScalar(this.getCurrentSpeed() * 1.05);
-      this.position.x += this.velocity.x * delta;
-      this.position.z += this.velocity.z * delta;
-      this.meshGroup.position.copy(this.position);
+      this.moveWithCollision(this.velocity.x, this.velocity.z, delta);
     } else {
       // Reached last known point: search area for 1.5s
       this.velocity.set(0, 0, 0);
@@ -1383,9 +1502,7 @@ class CSBot {
 
     this.targetRotationY = Math.atan2(retreatDir.x, retreatDir.z) + Math.PI;
     this.velocity.copy(retreatDir).multiplyScalar(this.getCurrentSpeed() * 1.0);
-    this.position.x += this.velocity.x * delta;
-    this.position.z += this.velocity.z * delta;
-    this.meshGroup.position.copy(this.position);
+    this.moveWithCollision(this.velocity.x, this.velocity.z, delta);
 
     // Suppressive defensive potshots while retreating
     if (this.hasLineOfSight(this.currentTarget.position) && this.burstCooldown <= 0) {
@@ -1443,9 +1560,7 @@ class CSBot {
       const moveDir = new THREE.Vector3(dx, 0, dz).normalize();
       this.targetRotationY = Math.atan2(dx, dz) + Math.PI;
       this.velocity.copy(moveDir).multiplyScalar(this.getCurrentSpeed() * 0.7);
-      this.position.x += this.velocity.x * delta;
-      this.position.z += this.velocity.z * delta;
-      this.meshGroup.position.copy(this.position);
+      this.moveWithCollision(this.velocity.x, this.velocity.z, delta);
     } else {
       this.guardAngleTimer = (this.guardAngleTimer || 0) + delta;
       if (this.guardAngleTimer > 2.2) {
@@ -1479,9 +1594,7 @@ class CSBot {
       this.targetRotationY = Math.atan2(dx, dz) + Math.PI;
       const dir = new THREE.Vector3(dx, 0, dz).normalize();
       this.velocity.copy(dir).multiplyScalar(this.getCurrentSpeed() * 1.05);
-      this.position.x += this.velocity.x * delta;
-      this.position.z += this.velocity.z * delta;
-      this.meshGroup.position.copy(this.position);
+      this.moveWithCollision(this.velocity.x, this.velocity.z, delta);
     } else {
       this.velocity.set(0, 0, 0);
       this.targetRotationY = Math.atan2(dx, dz) + Math.PI;
