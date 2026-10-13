@@ -92,7 +92,14 @@ class CSBot {
     this.deathFallTimer = 0;
     this.deathFallDuration = 0.45;
     this.deathFallAngle = 0;
+    this.deathFallAxis = 'forward'; // 'forward', 'back', 'side_left', 'side_right'
     this.deathKnockback = new THREE.Vector3();
+    this.deathTwitchTimer = 0;
+    this.deathTwitchDuration = 0;
+    this.deathTwitchPhase = 0;
+    this.isTwitching = false;
+    this.hitZoneOnDeath = 'body';
+    this.bloodPoolMesh = null;
 
     // Weapon Selection
     const sniperChance = Math.random();
@@ -341,6 +348,9 @@ class CSBot {
     this.armor = 100;
     this.isDead = false;
     this.isFalling = false;
+    this.isTwitching = false;
+    this.deathTwitchTimer = 0;
+    this.hitZoneOnDeath = 'body';
     this.isCrouching = false;
     this.meshGroup.visible = true;
     this.meshGroup.rotation.set(0, 0, 0);
@@ -473,6 +483,7 @@ class CSBot {
     this.velocity.set(0, 0, 0);
     this.currentTarget = null;
     this.burstShotsRemaining = 0;
+    this.hitZoneOnDeath = hitZone || 'body';
 
     // Disable all hitboxes and meshes immediately so dead bodies never block future bullets
     if (this.hitboxes) {
@@ -498,47 +509,119 @@ class CSBot {
       this.hasC4 = false;
     }
 
-    // Setup smooth ragdoll fall / collapse animation
+    // --- Realistic ragdoll direction based on hitzone and attacker position ---
+    const attackerPos = attacker ? attacker.position : null;
+    let fallDir = 'forward'; // default: fall backward from shooter
+    if (attackerPos) {
+      const toBot = new THREE.Vector3().subVectors(this.position, attackerPos).normalize();
+      const botFwd = new THREE.Vector3(-Math.sin(this.rotationY), 0, -Math.cos(this.rotationY));
+      const dot = toBot.dot(botFwd);
+      const cross = botFwd.x * toBot.z - botFwd.z * toBot.x;
+      if (dot > 0.55) fallDir = 'back';       // shot from behind: slump forward
+      else if (dot < -0.55) fallDir = 'forward'; // shot from front: fall backward
+      else if (cross > 0) fallDir = 'side_left';
+      else fallDir = 'side_right';
+    }
+    // Headshot: always collapse hard backward
+    if (isHeadshot) fallDir = 'forward';
+    this.deathFallAxis = fallDir;
+
+    // Fall angles based on direction
+    const angles = {
+      forward:    { x: Math.PI / 2.1,  z: (Math.random() - 0.5) * 0.3 },
+      back:       { x: -Math.PI / 2.2, z: (Math.random() - 0.5) * 0.2 },
+      side_left:  { x: (Math.random() - 0.5) * 0.4, z: Math.PI / 2.3 },
+      side_right: { x: (Math.random() - 0.5) * 0.4, z: -Math.PI / 2.3 }
+    };
+    this.deathFallAngleX = angles[fallDir].x;
+    this.deathFallAngleZ = angles[fallDir].z;
+
     this.isFalling = true;
     this.deathFallTimer = 0;
-    this.deathFallDuration = 0.48; // 480ms smooth collapse
-    this.deathFallAngle = isHeadshot ? -(Math.PI / 2.1) : (Math.PI / 2.2);
+    // Leg shot = slower collapse; headshot = fast violent drop
+    this.deathFallDuration = isHeadshot ? 0.32 : (hitZone === 'legs' ? 0.72 : 0.50);
 
-    const attackerPos = attacker ? attacker.position : null;
+    // Knockback from bullet impact
     if (attackerPos) {
       const pushDir = new THREE.Vector3().subVectors(this.position, attackerPos);
       pushDir.y = 0;
       pushDir.normalize();
-      this.deathKnockback = pushDir.multiplyScalar(isHeadshot ? 2.2 : 1.1);
+      this.deathKnockback = pushDir.multiplyScalar(isHeadshot ? 2.8 : (hitZone === 'legs' ? 0.6 : 1.3));
     } else {
       this.deathKnockback = new THREE.Vector3(0, 0, 0);
+    }
+
+    // Twitch / convulse after collapse (leg shot or body shot)
+    if (!isHeadshot) {
+      this.isTwitching = true;
+      this.deathTwitchTimer = 0;
+      this.deathTwitchDuration = 0.9 + Math.random() * 0.8; // 0.9 - 1.7s
+      this.deathTwitchPhase = 0;
+    }
+
+    // Spawn blood pool under the body (appears after fall completes)
+    if (window.csGame && window.csGame.createBloodPool) {
+      const poolDelay = this.deathFallDuration * 1000;
+      setTimeout(() => {
+        if (window.csGame && window.csGame.createBloodPool) {
+          window.csGame.createBloodPool(this.position.clone());
+        }
+      }, poolDelay);
+    }
+
+    // Spray gore blood burst at hit position
+    if (window.csGame && window.csGame.createBloodSpurt) {
+      const spurtPos = this.position.clone();
+      spurtPos.y += (hitZone === 'head' ? 1.55 : hitZone === 'legs' ? 0.4 : 1.05);
+      window.csGame.createBloodSpurt(spurtPos, isHeadshot);
     }
 
     window.csGame.handleBotDeath(this, attacker, isHeadshot);
   }
 
   update(delta, player, allBots) {
-    // 1. If Dead: execute smooth fall / ragdoll tumble then remain on ground
+    // 1. If Dead: execute realistic multi-phase ragdoll then remain on ground
     if (this.isDead) {
       if (this.isFalling) {
         this.deathFallTimer += delta;
         const t = Math.min(1, this.deathFallTimer / this.deathFallDuration);
-        const ease = 1 - Math.pow(1 - t, 3); // Cubic ease-out
+        // Elastic ease: fast start then bounce-settle
+        const ease = t < 0.5
+          ? 4 * t * t * t
+          : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
-        this.limbs.torso.rotation.x = this.deathFallAngle * ease;
-        this.limbs.leftLeg.rotation.x = -0.25 * ease;
-        this.limbs.rightLeg.rotation.x = 0.35 * ease;
-        this.limbs.leftArm.rotation.z = 0.5 * ease;
-        this.limbs.rightArm.rotation.z = -0.5 * ease;
+        // Apply fall direction angles to whole meshGroup rotation
+        const targetAngleX = this.deathFallAngleX || Math.PI / 2.2;
+        const targetAngleZ = this.deathFallAngleZ || 0;
+        this.meshGroup.rotation.x = targetAngleX * ease;
+        this.meshGroup.rotation.z = targetAngleZ * ease;
 
+        // Independent limb articulation during fall
+        const legSpread = ease;
+        const hitZ = this.hitZoneOnDeath;
+        // Head/torso area impact: arms flail outward
+        this.limbs.leftArm.rotation.z  = (hitZ !== 'legs' ? 0.85 : 0.3)  * ease;
+        this.limbs.rightArm.rotation.z = (hitZ !== 'legs' ? -0.85 : -0.3) * ease;
+        this.limbs.leftArm.rotation.x  = (hitZ === 'head' ? -0.6 : 0.2)  * ease;
+        this.limbs.rightArm.rotation.x = (hitZ === 'head' ? -0.6 : 0.2)  * ease;
+        // Leg kick on fall
+        this.limbs.leftLeg.rotation.x  = (hitZ === 'legs' ? -0.7 : -0.3) * ease;
+        this.limbs.rightLeg.rotation.x = (hitZ === 'legs' ?  0.9 :  0.4) * ease;
+        // Neck/head snap
+        if (this.limbs.head) {
+          this.limbs.head.rotation.x = (this.deathFallAngleX > 0 ? 0.45 : -0.45) * ease;
+        }
+
+        // Sink toward ground
         const groundY = (this.map && this.map.getGroundHeight)
           ? this.map.getGroundHeight(this.position.x, this.position.z, this.position.y)
           : 0;
-        this.meshGroup.position.y = THREE.MathUtils.lerp(this.meshGroup.position.y, groundY + 0.16, ease);
+        this.meshGroup.position.y = THREE.MathUtils.lerp(this.meshGroup.position.y, groundY, ease);
 
+        // Slide from knockback
         if (this.deathKnockback.lengthSq() > 0.01) {
-          this.position.x += this.deathKnockback.x * delta * (1 - ease);
-          this.position.z += this.deathKnockback.z * delta * (1 - ease);
+          this.position.x += this.deathKnockback.x * delta * (1 - ease) * 1.5;
+          this.position.z += this.deathKnockback.z * delta * (1 - ease) * 1.5;
           this.meshGroup.position.x = this.position.x;
           this.meshGroup.position.z = this.position.z;
         }
@@ -547,6 +630,21 @@ class CSBot {
           this.isFalling = false;
         }
       }
+
+      // Twitching phase: convulsive micro-spasms after collapse
+      if (this.isTwitching) {
+        this.deathTwitchTimer += delta;
+        const tp = this.deathTwitchTimer / this.deathTwitchDuration;
+        const decay = 1 - tp; // gradually weaker
+        const spasm = Math.sin(this.deathTwitchTimer * 18) * 0.08 * decay;
+        const spasm2 = Math.cos(this.deathTwitchTimer * 22) * 0.06 * decay;
+        if (this.limbs.leftLeg)  this.limbs.leftLeg.rotation.z  += spasm;
+        if (this.limbs.rightLeg) this.limbs.rightLeg.rotation.z -= spasm * 0.7;
+        if (this.limbs.leftArm)  this.limbs.leftArm.rotation.x  += spasm2;
+        if (this.limbs.rightArm) this.limbs.rightArm.rotation.x -= spasm2;
+        if (tp >= 1) this.isTwitching = false;
+      }
+
       return;
     }
 
