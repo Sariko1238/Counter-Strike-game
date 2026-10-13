@@ -415,7 +415,8 @@ class CSBot {
         window.csAudio.speakRadio('Enemy spotted!');
       }
       if (window.csGame && window.csGame.showRadioSubtitle) {
-        window.csGame.showRadioSubtitle(`${this.name}: Враг замечен! (Enemy spotted!)`);
+        const spotMsg = window.csI18n ? window.csI18n.t('radio_enemy_spotted') : 'Враг замечен! (Enemy spotted!)';
+        window.csGame.showRadioSubtitle(`${this.name}: ${spotMsg}`);
       }
     }
   }

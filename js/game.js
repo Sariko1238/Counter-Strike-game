@@ -59,9 +59,10 @@ class CSGame {
   }
 
   initThree() {
-    // 1. Scene with crystal tropical coastal horizon haze
+    this.selectedMap = localStorage.getItem('cs_game_map') || 'dust2';
+
+    // 1. Scene
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0xa2d2ff, 0.0032);
 
     // 2. Camera
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 350);
@@ -75,9 +76,9 @@ class CSGame {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.container.appendChild(this.renderer.domElement);
 
-    // 4. Map & Player
-    this.map = new window.CSDust2Map(this.scene);
-    this.map.buildMap();
+    // 4. Map & Player (loads selected map: de_dust2 or de_beach)
+    this.map = null;
+    this.loadMap(this.selectedMap, false);
 
     this.player = new window.CSPlayer(this.camera, this.scene, this.map);
 
@@ -94,18 +95,100 @@ class CSGame {
     });
   }
 
+  loadMap(mapName, rebuild = true) {
+    if (this.map && this.map.destroy) {
+      this.map.destroy();
+    }
+    this.selectedMap = mapName;
+    localStorage.setItem('cs_game_map', mapName);
+
+    if (mapName === 'beach') {
+      this.scene.fog = new THREE.FogExp2(0xa2d2ff, 0.0032);
+      this.map = new window.CSBeachMap(this.scene);
+    } else {
+      this.scene.fog = new THREE.FogExp2(0xd8bf97, 0.0040);
+      this.map = new window.CSDust2Map(this.scene);
+    }
+    this.map.buildMap();
+
+    // Update scoreboard title
+    const sbTitle = document.getElementById('sb-map-title');
+    if (sbTitle) {
+      sbTitle.textContent = (mapName === 'beach')
+        ? (window.csI18n ? window.csI18n.t('sb_title_beach') : 'DE_BEACH - MATCH STATS')
+        : (window.csI18n ? window.csI18n.t('sb_title_dust2') : 'DE_DUST2 - MATCH STATS');
+    }
+
+    if (rebuild) {
+      if (this.player) {
+        this.player.map = this.map;
+        const playerSpawnList = this.playerTeam === 'ct' ? this.map.spawnPoints.ct : this.map.spawnPoints.t;
+        const pSpawn = (playerSpawnList && playerSpawnList.length > 0) ? playerSpawnList[0] : { x: 0, z: 0 };
+        this.player.spawn(pSpawn);
+      }
+      this.setupBots();
+    }
+  }
+
+  showHitmarker(isHeadshot = false) {
+    const hm = document.getElementById('hitmarker');
+    if (!hm) return;
+    hm.classList.remove('hidden');
+    hm.classList.remove('active');
+    if (isHeadshot) {
+      hm.classList.add('hm-headshot');
+    } else {
+      hm.classList.remove('hm-headshot');
+    }
+    void hm.offsetWidth; // Force CSS animation restart
+    hm.classList.add('active');
+
+    clearTimeout(this.hitmarkerTimer);
+    this.hitmarkerTimer = setTimeout(() => {
+      hm.classList.remove('active');
+      setTimeout(() => {
+        if (!hm.classList.contains('active')) hm.classList.add('hidden');
+      }, 60);
+    }, 130);
+  }
+
+  showEliminationToast(victimName, isHeadshot = false) {
+    const banner = document.getElementById('kill-streak-banner');
+    if (!banner) return;
+    const hsPrefix = isHeadshot ? '★ HEADSHOT! ' : '';
+    banner.textContent = `+300$ ${hsPrefix}ELIMINATED: ${victimName.toUpperCase()}`;
+    if (isHeadshot) banner.classList.add('hs-elim');
+    else banner.classList.remove('hs-elim');
+    banner.classList.remove('hidden');
+    banner.classList.add('active');
+
+    clearTimeout(this.elimToastTimer);
+    this.elimToastTimer = setTimeout(() => {
+      banner.classList.remove('active');
+      setTimeout(() => {
+        if (!banner.classList.contains('active')) banner.classList.add('hidden');
+      }, 200);
+    }, 1800);
+  }
+
   updateLobbyBadge(team) {
     const titleEl = document.getElementById('lobby-op-title');
     const weaponEl = document.getElementById('lobby-op-weapon');
     const teamEl = document.getElementById('lobby-op-team');
+    const statusEl = document.querySelector('.op-status-tag');
+    const i18n = window.csI18n;
+
     if (team === 'ct') {
-      if (teamEl) teamEl.textContent = 'СПЕЦНАЗ (CT)';
+      if (teamEl) teamEl.textContent = i18n ? i18n.t('badge_team_ct') : 'СПЕЦНАЗ (CT)';
       if (titleEl) titleEl.textContent = 'SAS OPERATIVE';
-      if (weaponEl) weaponEl.textContent = 'ВООРУЖЕНИЕ: M4A1 CARBINE';
+      if (weaponEl) weaponEl.textContent = i18n ? i18n.t('badge_wpn_m4') : 'ВООРУЖЕНИЕ: M4A1 CARBINE';
     } else {
-      if (teamEl) teamEl.textContent = 'ТЕРРОРИСТЫ (T)';
+      if (teamEl) teamEl.textContent = i18n ? i18n.t('badge_team_t') : 'ТЕРРОРИСТЫ (T)';
       if (titleEl) titleEl.textContent = 'PHOENIX ENFORCER';
-      if (weaponEl) weaponEl.textContent = 'ВООРУЖЕНИЕ: AK-47 ASSAULT RIFLE';
+      if (weaponEl) weaponEl.textContent = i18n ? i18n.t('badge_wpn_ak') : 'ВООРУЖЕНИЕ: AK-47 ASSAULT RIFLE';
+    }
+    if (statusEl && i18n) {
+      statusEl.textContent = i18n.t('badge_status');
     }
   }
 
@@ -129,6 +212,37 @@ class CSGame {
       if (this.lobby3d) this.lobby3d.setTeam('t');
       this.updateLobbyBadge('t');
     });
+
+    // Map Selection
+    const selectMap = document.getElementById('select-map');
+    if (selectMap) {
+      selectMap.value = this.selectedMap || 'dust2';
+      selectMap.addEventListener('change', (e) => {
+        this.loadMap(e.target.value, true);
+        if (window.csAudio && window.csAudio.playMechanicalClick) {
+          window.csAudio.playMechanicalClick(1.4, 750);
+        }
+      });
+    }
+
+    // Language Toggle / I18n Init
+    if (window.csI18n) {
+      window.csI18n.init();
+      window.addEventListener('cs_language_changed', () => {
+        this.updateLobbyBadge(this.playerTeam);
+        if (this.isPaused && this.btnStart) {
+          this.btnStart.textContent = window.csI18n.t('resume_btn');
+        } else if (this.btnStart && !this.isGameStarted) {
+          this.btnStart.innerHTML = `<span class="play-icon">▶</span> <span class="play-text">${window.csI18n.t('play_btn')}</span>`;
+        }
+        const sbTitle = document.getElementById('sb-map-title');
+        if (sbTitle) {
+          sbTitle.textContent = (this.selectedMap === 'beach')
+            ? window.csI18n.t('sb_title_beach')
+            : window.csI18n.t('sb_title_dust2');
+        }
+      });
+    }
 
     // Settings
     const diffSelect = document.getElementById('select-difficulty');
@@ -322,7 +436,13 @@ class CSGame {
     this.isPaused = true;
     this.showMenuOverlay(true);
     if (this.btnStart) {
-      this.btnStart.textContent = 'ПРОДОЛЖИТЬ (RESUME)';
+      const resumeText = window.csI18n ? window.csI18n.t('resume_btn') : 'ПРОДОЛЖИТЬ (RESUME)';
+      const playTextEl = this.btnStart.querySelector('.play-text');
+      if (playTextEl) {
+        playTextEl.textContent = resumeText;
+      } else {
+        this.btnStart.textContent = resumeText;
+      }
     }
     if (this.btnRestart) {
       this.btnRestart.classList.remove('hidden');
@@ -343,7 +463,13 @@ class CSGame {
       this.showMenuOverlay(false);
       this.isPaused = false;
       if (this.btnStart) {
-        this.btnStart.textContent = 'ПРОДОЛЖИТЬ (RESUME)';
+        const resumeText = window.csI18n ? window.csI18n.t('resume_btn') : 'ПРОДОЛЖИТЬ (RESUME)';
+        const playTextEl = this.btnStart.querySelector('.play-text');
+        if (playTextEl) {
+          playTextEl.textContent = resumeText;
+        } else {
+          this.btnStart.textContent = resumeText;
+        }
       }
       if (this.btnRestart) {
         this.btnRestart.classList.remove('hidden');
@@ -378,7 +504,7 @@ class CSGame {
 
   buyItem(itemId, cost) {
     if (this.player.money < cost) {
-      this.showRadioSubtitle('Недостаточно денег для покупки!');
+      this.showRadioSubtitle(window.csI18n ? window.csI18n.t('buy_no_money') : 'Недостаточно денег для покупки!');
       window.csAudio.playMechanicalClick(0.5, 300);
       return;
     }
@@ -428,19 +554,29 @@ class CSGame {
   }
 
   updateScoreboardContent() {
-    document.getElementById('sb-ct-rounds').textContent = `${this.scoreCT} ПОБЕД`;
-    document.getElementById('sb-t-rounds').textContent = `${this.scoreT} ПОБЕД`;
+    const sbTitle = document.getElementById('sb-map-title');
+    if (sbTitle) {
+      const mapKey = this.selectedMap === 'dust2' ? 'sb_title_dust2' : 'sb_title_beach';
+      sbTitle.textContent = window.csI18n ? window.csI18n.t(mapKey) : (this.selectedMap === 'dust2' ? 'DE_DUST2 - СЧЁТ МАТЧА' : 'DE_BEACH - СЧЁТ МАТЧА');
+    }
+
+    const winsLabel = window.csI18n ? window.csI18n.t('sb_wins') : 'ПОБЕД';
+    document.getElementById('sb-ct-rounds').textContent = `${this.scoreCT} ${winsLabel}`;
+    document.getElementById('sb-t-rounds').textContent = `${this.scoreT} ${winsLabel}`;
 
     const ctBody = document.getElementById('sb-ct-body');
     const tBody = document.getElementById('sb-t-body');
     ctBody.innerHTML = '';
     tBody.innerHTML = '';
 
+    const aliveLabel = window.csI18n ? window.csI18n.t('sb_status_alive') : 'Жив';
+    const deadLabel = window.csI18n ? window.csI18n.t('sb_status_dead') : 'Мёртв';
+
     const addRow = (tbody, name, kills, deaths, isDead, isPlayer) => {
       const tr = document.createElement('tr');
       if (isPlayer) tr.classList.add('is-player');
       if (isDead) tr.classList.add('is-dead');
-      tr.innerHTML = `<td>${name}</td><td>${kills}</td><td>${deaths}</td><td>${isDead ? 'Мёртв' : 'Жив'}</td>`;
+      tr.innerHTML = `<td>${name}</td><td>${kills}</td><td>${deaths}</td><td>${isDead ? deadLabel : aliveLabel}</td>`;
       tbody.appendChild(tr);
     };
 
@@ -471,7 +607,13 @@ class CSGame {
     this.requestPointerLock();
 
     if (this.btnStart) {
-      this.btnStart.textContent = 'ПРОДОЛЖИТЬ (RESUME)';
+      const resumeText = window.csI18n ? window.csI18n.t('resume_btn') : 'ПРОДОЛЖИТЬ (RESUME)';
+      const playTextEl = this.btnStart.querySelector('.play-text');
+      if (playTextEl) {
+        playTextEl.textContent = resumeText;
+      } else {
+        this.btnStart.textContent = resumeText;
+      }
     }
     if (this.btnRestart) {
       this.btnRestart.classList.remove('hidden');
@@ -553,7 +695,10 @@ class CSGame {
     this.player.updateHUD();
 
     window.csAudio.speakRadio('Go, go, go!');
-    this.showRadioSubtitle('Режим «1 против 5»: вы один против 5 врагов! В бой!');
+    const modeMsg = window.csI18n?.currentLang === 'en'
+      ? '«1 vs 5» Mode: You are alone against 5 enemies! Fight!'
+      : 'Режим «1 против 5»: вы один против 5 врагов! В бой!';
+    this.showRadioSubtitle(modeMsg);
   }
 
   plantBomb(position, siteLetter, planter) {
@@ -591,7 +736,10 @@ class CSGame {
 
     document.getElementById('c4-indicator').classList.remove('hidden');
     window.csAudio.speakRadio('The bomb has been planted!');
-    this.showRadioSubtitle(`Бомба заложена на точке [${siteLetter}]!`);
+    const plantMsg = window.csI18n?.currentLang === 'en'
+      ? `Bomb planted at site [${siteLetter}]!`
+      : `Бомба заложена на точке [${siteLetter}]!`;
+    this.showRadioSubtitle(plantMsg);
 
     // Alert CT bots to rush bomb site to defuse
     this.bots.filter(b => b.team === 'ct' && !b.isDead).forEach(b => {
@@ -634,7 +782,10 @@ class CSGame {
     this.scene.add(this.droppedBombMesh);
 
     window.csAudio.speakRadio('Bomb has been dropped!');
-    this.showRadioSubtitle('Бомба потеряна! Заберите C4!');
+    const dropMsg = window.csI18n?.currentLang === 'en'
+      ? 'Bomb dropped! Retrieve the C4!'
+      : 'Бомба потеряна! Заберите C4!';
+    this.showRadioSubtitle(dropMsg);
   }
 
   pickUpBomb(carrier) {
@@ -651,11 +802,13 @@ class CSGame {
       this.player.updateHUD();
       window.csAudio.playMechanicalClick(1.2, 800);
       window.csAudio.speakRadio('I have the bomb!');
-      this.showRadioSubtitle('Вы подобрали бомбу (C4)!');
+      const pickMsg = window.csI18n?.currentLang === 'en' ? 'You picked up the bomb (C4)!' : 'Вы подобрали бомбу (C4)!';
+      this.showRadioSubtitle(pickMsg);
     } else if (carrier && carrier.isBot) {
       carrier.hasC4 = true;
       window.csAudio.playMechanicalClick(1.2, 800);
-      this.showRadioSubtitle(`${carrier.name} подобрал бомбу!`);
+      const botPickMsg = window.csI18n?.currentLang === 'en' ? `${carrier.name} picked up the bomb!` : `${carrier.name} подобрал бомбу!`;
+      this.showRadioSubtitle(botPickMsg);
     }
   }
 
@@ -666,14 +819,15 @@ class CSGame {
 
     window.csAudio.playMechanicalClick(1.8, 1200);
     window.csAudio.speakRadio('Bomb has been defused!');
-    this.showRadioSubtitle('Бомба успешно обезврежена!');
+    this.showRadioSubtitle(window.csI18n ? window.csI18n.t('bomb_defused_announcement') : 'Бомба успешно обезврежена!');
 
     if (defuser === this.player) {
       this.player.money = Math.min(16000, this.player.money + 300);
       this.player.updateHUD();
     }
 
-    this.endRound('ct', 'Бомба обезврежена');
+    const reasonText = window.csI18n ? window.csI18n.t('bomb_defused_announcement') : 'Бомба обезврежена';
+    this.endRound('ct', reasonText);
   }
 
   detonateBomb() {
@@ -702,7 +856,8 @@ class CSGame {
       }
     });
 
-    this.endRound('t', 'Точка подорвана');
+    const rText = window.csI18n ? window.csI18n.t('target_bombed_announcement') : 'Точка подорвана';
+    this.endRound('t', rText);
   }
 
   handlePlayerDeath(player, attacker, isHeadshot) {
@@ -744,13 +899,19 @@ class CSGame {
       this.player.kills++;
       this.player.money = Math.min(16000, this.player.money + 300);
       this.player.updateHUD();
+
+      // Show CS:GO style elimination toast!
+      this.showEliminationToast(bot.name, isHeadshot);
+
       if (isHeadshot) {
-        this.showRadioSubtitle('В ГОЛОВУ! (HEADSHOT) +$300');
+        const hsText = window.csI18n ? `${window.csI18n.t('radio_headshot')} +$300` : 'В ГОЛОВУ! (HEADSHOT) +$300';
+        this.showRadioSubtitle(hsText);
         if (window.csAudio && window.csAudio.playHeadshot) {
           window.csAudio.playHeadshot();
         }
       } else {
-        this.showRadioSubtitle('+1 ФРАГ! +$300');
+        const killText = window.csI18n ? `+1 ${window.csI18n.t('radio_kill')}! +$300` : '+1 ФРАГ! +$300';
+        this.showRadioSubtitle(killText);
       }
     } else if (attacker && attacker.isBot) {
       attacker.kills++;
@@ -807,10 +968,12 @@ class CSGame {
       if (this.isBombPlanted && !this.isBombDefused) {
         // Round continues until bomb defused or exploded!
       } else {
-        this.endRound('ct', 'Все террористы нейтрализованы');
+        const rText = window.csI18n ? window.csI18n.t('reason_t_elim') : 'Все террористы нейтрализованы';
+        this.endRound('ct', rText);
       }
     } else if (!ctAlive) {
-      this.endRound('t', 'Все спецназовцы уничтожены');
+      const rText = window.csI18n ? window.csI18n.t('reason_ct_elim') : 'Все спецназовцы уничтожены';
+      this.endRound('t', rText);
     }
   }
 
@@ -822,13 +985,15 @@ class CSGame {
       this.scoreCT++;
       document.getElementById('score-ct').textContent = this.scoreCT;
       window.csAudio.speakRadio('Counter-Terrorists Win!');
-      this.showAnnouncement('COUNTER-TERRORISTS WIN', '#4a90e2');
+      const winText = window.csI18n ? window.csI18n.t('ct_win') : 'COUNTER-TERRORISTS WIN';
+      this.showAnnouncement(winText, '#4a90e2');
       if (this.playerTeam === 'ct') this.player.money = Math.min(16000, this.player.money + 3250);
     } else {
       this.scoreT++;
       document.getElementById('score-t').textContent = this.scoreT;
       window.csAudio.speakRadio('Terrorists Win!');
-      this.showAnnouncement('TERRORISTS WIN', '#e74c3c');
+      const winText = window.csI18n ? window.csI18n.t('t_win') : 'TERRORISTS WIN';
+      this.showAnnouncement(winText, '#e74c3c');
       if (this.playerTeam === 't') this.player.money = Math.min(16000, this.player.money + 3250);
     }
 
@@ -1270,7 +1435,10 @@ class CSGame {
 
     const killerInfo = document.getElementById('death-killer-info');
     if (killerInfo) {
-      killerInfo.textContent = `Вас уничтожил: ${killer} [${weapon}]${isHeadshot ? ' (В ГОЛОВУ)' : ''}`;
+      const isEn = (window.csI18n?.currentLang === 'en');
+      const prefix = isEn ? 'Eliminated by: ' : 'Вас уничтожил: ';
+      const hsSuffix = isHeadshot ? (isEn ? ' (HEADSHOT)' : ' (В ГОЛОВУ)') : '';
+      killerInfo.textContent = `${prefix}${killer} [${weapon}]${hsSuffix}`;
     }
 
     this.spectatingBot = null;
@@ -1321,7 +1489,7 @@ class CSGame {
   updateDeathOverlayUI() {
     const specTargetName = document.getElementById('spectator-target-name');
     if (specTargetName) {
-      specTargetName.textContent = 'Режим «1 против 5» • Нажмите [ПРОБЕЛ] или кнопку для мгновенного возрождения';
+      specTargetName.textContent = window.csI18n ? window.csI18n.t('death_spectator') : 'Режим «1 против 5» • Нажмите [ПРОБЕЛ] или кнопку для мгновенного возрождения';
     }
   }
 
@@ -1380,7 +1548,10 @@ class CSGame {
     });
 
     this.requestPointerLock();
-    this.showAnnouncement('ВОЗРОЖДЕНИЕ! ЩИТ СПАВНА: 2 СЕК', '#00ff66');
+    const respawnMsg = (window.csI18n?.currentLang === 'en')
+      ? 'RESPAWN! SPAWN SHIELD: 2 SEC'
+      : 'ВОЗРОЖДЕНИЕ! ЩИТ СПАВНА: 2 СЕК';
+    this.showAnnouncement(respawnMsg, '#00ff66');
   }
 
   takeoverAlliedBot() {

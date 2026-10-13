@@ -864,6 +864,12 @@ class CSPlayer {
 
         if (isHeadshot && window.csAudio && window.csAudio.playHeadshot) {
           window.csAudio.playHeadshot();
+        } else if (window.csAudio && window.csAudio.playFleshHit) {
+          window.csAudio.playFleshHit();
+        }
+
+        if (window.csGame && window.csGame.showHitmarker) {
+          window.csGame.showHitmarker(isHeadshot);
         }
 
         bot.takeDamage(dmg, isHeadshot, this, hitZone);
@@ -918,6 +924,9 @@ class CSPlayer {
               const isHeadshot = (penZone === 'head');
               let penDmg = (isHeadshot ? 95 : 24) * penFactor;
 
+              if (window.csGame && window.csGame.showHitmarker) {
+                window.csGame.showHitmarker(isHeadshot);
+              }
               bot.takeDamage(penDmg, isHeadshot, this, penZone);
               window.csGame.createBloodSpurt(penHit.point);
               window.csAudio.playMechanicalClick(1.5, 800);
@@ -1613,9 +1622,19 @@ class CSPlayer {
     const inSiteB = this.map && this.position.distanceTo(new THREE.Vector3(this.map.bombsiteB.x, 0, this.map.bombsiteB.z)) < this.map.bombsiteB.radius;
 
     if (inSiteA || inSiteB) {
-      if (window.csGame) window.csGame.showRadioSubtitle('Удерживайте ЛКМ или [E] для закладки C4 (3.2 сек)!');
+      if (window.csGame) {
+        const holdMsg = window.csI18n?.currentLang === 'en'
+          ? 'Hold LMB or [E] to plant C4 (3.2s)!'
+          : 'Удерживайте ЛКМ или [E] для закладки C4 (3.2 сек)!';
+        window.csGame.showRadioSubtitle(holdMsg);
+      }
     } else {
-      if (window.csGame) window.csGame.showRadioSubtitle('Необходимо зайти на точку закладки A или B!');
+      if (window.csGame) {
+        const needSiteMsg = window.csI18n?.currentLang === 'en'
+          ? 'Must be inside Bombsite A or B to plant C4!'
+          : 'Необходимо зайти на точку закладки A или B!';
+        window.csGame.showRadioSubtitle(needSiteMsg);
+      }
     }
   }
 

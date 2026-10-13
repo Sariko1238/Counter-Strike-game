@@ -7,6 +7,7 @@
 class CSBeachMap {
   constructor(scene) {
     this.scene = scene;
+    this.mapGroup = new THREE.Group();
     this.colliders = []; // Array of THREE.Box3 for collision detection
     this.platforms = []; // Array of { box: THREE.Box3, topY: number, isRamp: boolean }
     this.waterMesh = null;
@@ -87,7 +88,21 @@ class CSBeachMap {
     };
   }
 
+  destroy() {
+    if (this.mapGroup) {
+      this.scene.remove(this.mapGroup);
+    }
+    this.colliders = [];
+    this.platforms = [];
+    this.palmLeaves = [];
+  }
+
   buildMap() {
+    this.mapGroup = new THREE.Group();
+    this.scene.add(this.mapGroup);
+    const origAdd = this.scene.add.bind(this.scene);
+    this.scene.add = (obj) => { this.mapGroup.add(obj); };
+
     this.createSky();
     this.createLights();
     this.createOceanAndBeach();
@@ -99,6 +114,8 @@ class CSBeachMap {
     this.buildPalmGroves();            // 3D Palm Trees
     this.buildCoastalRocks();          // Boulders
     this.buildSiteDecals();            // A & B Markings
+
+    this.scene.add = origAdd;
   }
 
   // 1. Tropical Sky Dome
@@ -788,6 +805,704 @@ class CSBeachMap {
   }
 }
 
+// ==========================================================================
+// AUTHENTIC DE_DUST2 (LEGENDARY DESERT FORTRESS) 3D MAP ARCHITECTURE
+// ==========================================================================
+
+class CSDust2Map {
+  constructor(scene) {
+    this.scene = scene;
+    this.mapGroup = new THREE.Group();
+    this.colliders = []; // Array of THREE.Box3 for collision detection
+    this.platforms = []; // Array of { box: THREE.Box3, topY: number, isRamp: boolean }
+
+    // Bombsite coordinates
+    this.bombsiteA = { x: 20, z: 28, radius: 8.5 }; // Raised A Platform & Goose
+    this.bombsiteB = { x: -22, z: 12, radius: 8.5 }; // Raised B Platform, Window & Doors
+
+    // Spawn points
+    this.spawnPoints = {
+      ct: [
+        { x: 2, y: 0, z: 42 },
+        { x: 6, y: 0, z: 44 },
+        { x: -2, y: 0, z: 42 },
+        { x: 0, y: 0, z: 46 }
+      ],
+      t: [
+        { x: 0, y: 0, z: -56 },
+        { x: 4, y: 0, z: -58 },
+        { x: -4, y: 0, z: -56 },
+        { x: 2, y: 0, z: -54 }
+      ]
+    };
+
+    // Bot tactical navigation waypoints for de_dust2
+    this.waypoints = [
+      // T Spawn
+      { id: 't_spawn', x: 0, z: -56, type: 'spawn_t' },
+      { id: 't_suicide', x: 0, z: -36, type: 'path' },
+      { id: 't_long_outside', x: 22, z: -46, type: 'path' },
+      { id: 't_tunnels_entry', x: -14, z: -46, type: 'path' },
+
+      // Long A Route
+      { id: 'long_doors_out', x: 28, z: -36, type: 'choke' },
+      { id: 'long_doors_in', x: 28, z: -26, type: 'choke' },
+      { id: 'pit', x: 36, z: -20, type: 'path' },
+      { id: 'long_a_corner', x: 32, z: 0, type: 'path' },
+      { id: 'long_a_ramp', x: 24, z: 16, type: 'ramp' },
+      { id: 'site_a', x: 20, z: 28, type: 'bombsite' },
+      { id: 'site_a_goose', x: 24, z: 34, type: 'path' },
+
+      // Mid & Catwalk / Short A
+      { id: 'mid_doors_t', x: 0, z: -8, type: 'choke' },
+      { id: 'mid_doors_ct', x: 0, z: 6, type: 'choke' },
+      { id: 'catwalk_ramp', x: 10, z: -6, type: 'ramp' },
+      { id: 'catwalk_short', x: 11, z: 8, type: 'path' },
+      { id: 'short_a_stairs', x: 12, z: 18, type: 'path' },
+
+      // B Tunnels Route
+      { id: 'b_upper_1', x: -20, z: -35, type: 'path' },
+      { id: 'b_upper_2', x: -22, z: -18, type: 'path' },
+      { id: 'b_tunnel_exit', x: -22, z: -4, type: 'choke' },
+      { id: 'site_b', x: -22, z: 12, type: 'bombsite' },
+      { id: 'b_platform', x: -26, z: 15, type: 'path' },
+      { id: 'b_doors_exit', x: -11, z: 18, type: 'choke' },
+      { id: 'b_window_exit', x: -13, z: 11, type: 'path' },
+
+      // CT Spawn & Mid
+      { id: 'ct_mid', x: 2, z: 14, type: 'path' },
+      { id: 'ct_spawn', x: 2, z: 42, type: 'spawn_ct' },
+      { id: 'ct_to_a', x: 14, z: 38, type: 'path' },
+      { id: 'ct_to_b', x: -10, z: 32, type: 'path' }
+    ];
+
+    this.navConnections = {
+      t_spawn: ['t_suicide', 't_long_outside', 't_tunnels_entry'],
+      t_suicide: ['mid_doors_t', 't_long_outside'],
+      t_long_outside: ['long_doors_out'],
+      long_doors_out: ['long_doors_in'],
+      long_doors_in: ['long_a_corner', 'pit'],
+      pit: ['long_a_corner'],
+      long_a_corner: ['long_a_ramp'],
+      long_a_ramp: ['site_a'],
+      site_a: ['site_a_goose', 'short_a_stairs', 'ct_to_a'],
+      site_a_goose: ['site_a'],
+      mid_doors_t: ['mid_doors_ct', 'catwalk_ramp'],
+      mid_doors_ct: ['ct_mid', 'catwalk_ramp'],
+      catwalk_ramp: ['catwalk_short'],
+      catwalk_short: ['short_a_stairs'],
+      short_a_stairs: ['site_a'],
+      t_tunnels_entry: ['b_upper_1'],
+      b_upper_1: ['b_upper_2'],
+      b_upper_2: ['b_tunnel_exit'],
+      b_tunnel_exit: ['site_b', 'b_platform'],
+      site_b: ['b_platform', 'b_doors_exit', 'b_window_exit'],
+      b_platform: ['site_b'],
+      b_doors_exit: ['ct_to_b'],
+      b_window_exit: ['ct_mid'],
+      ct_mid: ['mid_doors_ct', 'ct_spawn', 'b_window_exit'],
+      ct_spawn: ['ct_to_a', 'ct_to_b', 'ct_mid'],
+      ct_to_a: ['site_a'],
+      ct_to_b: ['b_doors_exit']
+    };
+  }
+
+  destroy() {
+    if (this.mapGroup) {
+      this.scene.remove(this.mapGroup);
+    }
+    this.colliders = [];
+    this.platforms = [];
+  }
+
+  buildMap() {
+    this.mapGroup = new THREE.Group();
+    this.scene.add(this.mapGroup);
+
+    this.createSky();
+    this.createLights();
+    this.createGroundAndBoundaries();
+    this.buildTSpawnAndSuicide();
+    this.buildLongDoorsAndLongA();
+    this.buildBombsiteA();
+    this.buildCatwalkAndShortA();
+    this.buildMidAndDoubleDoors();
+    this.buildTunnelsToB();
+    this.buildBombsiteB();
+    this.buildCTSpawn();
+    this.buildSiteDecals();
+  }
+
+  // 1. Desert Sky Dome
+  createSky() {
+    const skyGeom = new THREE.SphereGeometry(180, 32, 16);
+    const skyMat = window.csTextures.getDustSkyMaterial();
+    const sky = new THREE.Mesh(skyGeom, skyMat);
+    this.mapGroup.add(sky);
+  }
+
+  // 2. Blazing Desert Sun & Warm Ambient Haze
+  createLights() {
+    // Warm desert ambient light
+    const ambient = new THREE.AmbientLight(0xf5e3cc, 0.88);
+    this.mapGroup.add(ambient);
+
+    // Warm Sun Directional Light
+    const sun = new THREE.DirectionalLight(0xfff6e5, 1.25);
+    sun.position.set(45, 75, -25);
+    sun.castShadow = true;
+    sun.shadow.mapSize.width = 2048;
+    sun.shadow.mapSize.height = 2048;
+    sun.shadow.camera.near = 10;
+    sun.shadow.camera.far = 190;
+    sun.shadow.camera.left = -65;
+    sun.shadow.camera.right = 65;
+    sun.shadow.camera.top = 65;
+    sun.shadow.camera.bottom = -65;
+    sun.shadow.bias = -0.0005;
+    this.mapGroup.add(sun);
+
+    // Sky azure bounce light
+    const skyBounce = new THREE.DirectionalLight(0x90bdec, 0.35);
+    skyBounce.position.set(-40, 25, 30);
+    this.mapGroup.add(skyBounce);
+  }
+
+  // 3. Desert Ground Terrain & Perimeter Walls
+  createGroundAndBoundaries() {
+    // Sandy dust ground
+    const groundGeom = new THREE.PlaneGeometry(120, 150);
+    const groundMat = new THREE.MeshStandardMaterial({
+      map: window.csTextures.getDustGroundTexture(),
+      roughness: 0.92,
+      metalness: 0.05
+    });
+    const ground = new THREE.Mesh(groundGeom, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(0, 0, -2);
+    ground.receiveShadow = true;
+    this.mapGroup.add(ground);
+
+    // Solid base ground collider platform
+    this.platforms.push({
+      box: new THREE.Box3(new THREE.Vector3(-55, -1, -70), new THREE.Vector3(55, 0, 65)),
+      topY: 0,
+      isRamp: false
+    });
+
+    const wallMat = new THREE.MeshStandardMaterial({
+      map: window.csTextures.getDustWallTexture(),
+      roughness: 0.88,
+      metalness: 0.08
+    });
+
+    // Outer Perimeter Boundary Walls (South, North, West, East)
+    const boundaries = [
+      { x: 0, y: 3.5, z: -64, w: 110, h: 7, d: 2 },  // South (behind T Spawn)
+      { x: 0, y: 3.5, z: 54, w: 110, h: 7, d: 2 },   // North (behind CT Spawn)
+      { x: -42, y: 3.5, z: -5, w: 2, h: 7, d: 120 }, // West (behind B)
+      { x: 44, y: 3.5, z: -5, w: 2, h: 7, d: 120 }   // East (behind Long A)
+    ];
+
+    boundaries.forEach(b => {
+      const geom = new THREE.BoxGeometry(b.w, b.h, b.d);
+      const mesh = new THREE.Mesh(geom, wallMat);
+      mesh.position.set(b.x, b.y, b.z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.mapGroup.add(mesh);
+      this.colliders.push(new THREE.Box3().setFromObject(mesh));
+    });
+  }
+
+  // 4. T Spawn Courtyard & Suicide Alley
+  buildTSpawnAndSuicide() {
+    const wallMat = new THREE.MeshStandardMaterial({
+      map: window.csTextures.getDustWallTexture(),
+      roughness: 0.88
+    });
+
+    // Separator walls dividing T Spawn routes
+    const walls = [
+      { x: 10, y: 3.0, z: -46, w: 2, h: 6, d: 20 },  // Wall between suicide & Long approach
+      { x: -10, y: 3.0, z: -46, w: 2, h: 6, d: 20 }, // Wall between suicide & Tunnel approach
+      { x: 18, y: 3.0, z: -54, w: 14, h: 6, d: 2 }   // T Spawn eastern barrier
+    ];
+
+    walls.forEach(w => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w.w, w.h, w.d), wallMat);
+      mesh.position.set(w.x, w.y, w.z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.mapGroup.add(mesh);
+      this.colliders.push(new THREE.Box3().setFromObject(mesh));
+    });
+
+    // T Spawn crates
+    this.addCrate(4, 1.0, -52, 2.0);
+    this.addCrate(-6, 1.0, -54, 2.0);
+  }
+
+  // 5. Long A Doors & Long A Corridor
+  buildLongDoorsAndLongA() {
+    const wallMat = new THREE.MeshStandardMaterial({
+      map: window.csTextures.getDustWallTexture(),
+      roughness: 0.88
+    });
+
+    // Long Double Doors Sandstone Gateway
+    const gatewayL = new THREE.Mesh(new THREE.BoxGeometry(8, 6.5, 2.5), wallMat);
+    gatewayL.position.set(22, 3.25, -32);
+    this.mapGroup.add(gatewayL);
+    this.colliders.push(new THREE.Box3().setFromObject(gatewayL));
+
+    const gatewayR = new THREE.Mesh(new THREE.BoxGeometry(8, 6.5, 2.5), wallMat);
+    gatewayR.position.set(34, 3.25, -32);
+    this.mapGroup.add(gatewayR);
+    this.colliders.push(new THREE.Box3().setFromObject(gatewayR));
+
+    // Lintel arch spanning across Long doors
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(6, 1.8, 2.5), wallMat);
+    lintel.position.set(28, 5.6, -32);
+    this.mapGroup.add(lintel);
+
+    // Green Metal Double Doors at Long A
+    const doorMat = new THREE.MeshStandardMaterial({
+      map: window.csTextures.getDustDoorTexture(),
+      roughness: 0.55,
+      metalness: 0.35
+    });
+
+    const doorL = new THREE.Mesh(new THREE.BoxGeometry(2.2, 4.2, 0.16), doorMat);
+    doorL.position.set(26.8, 2.1, -32);
+    doorL.rotation.y = -0.15;
+    this.mapGroup.add(doorL);
+
+    const doorR = new THREE.Mesh(new THREE.BoxGeometry(2.2, 4.2, 0.16), doorMat);
+    doorR.position.set(29.2, 2.1, -32);
+    doorR.rotation.y = 0.12;
+    this.mapGroup.add(doorR);
+
+    // Long A corridor walls (dividing Mid from Long A)
+    const longWall = new THREE.Mesh(new THREE.BoxGeometry(2, 6.5, 42), wallMat);
+    longWall.position.set(22, 3.25, -7);
+    this.mapGroup.add(longWall);
+    this.colliders.push(new THREE.Box3().setFromObject(longWall));
+
+    // Pit corner barrier
+    const pitWall = new THREE.Mesh(new THREE.BoxGeometry(6, 2.4, 2), wallMat);
+    pitWall.position.set(38, 1.2, -16);
+    this.mapGroup.add(pitWall);
+    this.colliders.push(new THREE.Box3().setFromObject(pitWall));
+
+    // Long A crates
+    this.addCrate(29, 1.0, 10, 2.0);
+    this.addCrate(36, 1.0, -22, 2.0);
+  }
+
+  // 6. Bombsite A (Platform, Ramp, Goose, and Crates)
+  buildBombsiteA() {
+    const wallMat = new THREE.MeshStandardMaterial({
+      map: window.csTextures.getDustWallTexture(),
+      roughness: 0.88
+    });
+
+    // Raised A Platform (16m wide, 1.6m high, 16m deep)
+    const platGeom = new THREE.BoxGeometry(16, 1.6, 16);
+    const plat = new THREE.Mesh(platGeom, wallMat);
+    plat.position.set(20, 0.8, 28);
+    plat.castShadow = true;
+    plat.receiveShadow = true;
+    this.mapGroup.add(plat);
+
+    this.platforms.push({
+      box: new THREE.Box3(new THREE.Vector3(12, 0, 20), new THREE.Vector3(28, 1.6, 36)),
+      topY: 1.6,
+      isRamp: false
+    });
+
+    // Long A Ramp onto A Platform (Z: 14 to 20, rises 0 -> 1.6m)
+    const rampGeom = new THREE.BoxGeometry(6, 1.6, 6);
+    const ramp = new THREE.Mesh(rampGeom, wallMat);
+    ramp.position.set(23, 0.8, 17);
+    ramp.rotation.x = 0.26; // Smooth inclined ramp
+    ramp.castShadow = true;
+    ramp.receiveShadow = true;
+    this.mapGroup.add(ramp);
+
+    this.platforms.push({
+      box: new THREE.Box3(new THREE.Vector3(20, 0, 14), new THREE.Vector3(26, 1.6, 20)),
+      topY: 1.6,
+      isRamp: true,
+      minZ: 14,
+      maxZ: 20,
+      startY: 0,
+      endY: 1.6
+    });
+
+    // The Goose Wall at back of A (Z: 36)
+    const gooseWall = new THREE.Mesh(new THREE.BoxGeometry(16, 6, 2), wallMat);
+    gooseWall.position.set(20, 4.0, 36);
+    this.mapGroup.add(gooseWall);
+    this.colliders.push(new THREE.Box3().setFromObject(gooseWall));
+
+    // A Site Defensive Crates
+    this.addCrate(23, 2.7, 26, 2.2); // Default plant crate
+    this.addCrate(18, 2.7, 30, 2.2); // Goose crate
+    this.addCrate(15, 2.6, 23, 2.0); // Short cover crate
+  }
+
+  // 7. Catwalk & Short A Walkway
+  buildCatwalkAndShortA() {
+    const wallMat = new THREE.MeshStandardMaterial({
+      map: window.csTextures.getDustWallTexture(),
+      roughness: 0.88
+    });
+
+    // Catwalk elevated walkway (topY = 2.2m, x: 8 to 14, z: -4 to 18)
+    const catwalkGeom = new THREE.BoxGeometry(6, 2.2, 22);
+    const catwalk = new THREE.Mesh(catwalkGeom, wallMat);
+    catwalk.position.set(11, 1.1, 7);
+    catwalk.castShadow = true;
+    catwalk.receiveShadow = true;
+    this.mapGroup.add(catwalk);
+
+    this.platforms.push({
+      box: new THREE.Box3(new THREE.Vector3(8, 0, -4), new THREE.Vector3(14, 2.2, 18)),
+      topY: 2.2,
+      isRamp: false
+    });
+
+    // Ramp from Mid up to Catwalk (Z: -10 to -4, rises 0 -> 2.2m)
+    const catRampGeom = new THREE.BoxGeometry(6, 2.2, 6);
+    const catRamp = new THREE.Mesh(catRampGeom, wallMat);
+    catRamp.position.set(11, 1.1, -7);
+    catRamp.rotation.x = -0.34;
+    catRamp.castShadow = true;
+    catRamp.receiveShadow = true;
+    this.mapGroup.add(catRamp);
+
+    this.platforms.push({
+      box: new THREE.Box3(new THREE.Vector3(8, 0, -10), new THREE.Vector3(14, 2.2, -4)),
+      topY: 2.2,
+      isRamp: true,
+      minZ: -10,
+      maxZ: -4,
+      startY: 0,
+      endY: 2.2
+    });
+
+    // Short A steps connecting Catwalk onto A Platform (Z: 18 to 21)
+    const shortSteps = new THREE.Mesh(new THREE.BoxGeometry(4, 1.6, 3), wallMat);
+    shortSteps.position.set(12, 0.8, 19.5);
+    this.mapGroup.add(shortSteps);
+
+    this.platforms.push({
+      box: new THREE.Box3(new THREE.Vector3(10, 0, 18), new THREE.Vector3(14, 1.8, 21)),
+      topY: 1.6,
+      isRamp: false
+    });
+
+    // The iconic Mid "Xbox" crate
+    this.addCrate(5, 1.1, -5, 2.2);
+  }
+
+  // 8. Mid Corridor & Iconic Mid Double Doors
+  buildMidAndDoubleDoors() {
+    const wallMat = new THREE.MeshStandardMaterial({
+      map: window.csTextures.getDustWallTexture(),
+      roughness: 0.88
+    });
+
+    // Mid double doors frame walls
+    const midWallL = new THREE.Mesh(new THREE.BoxGeometry(6, 6.5, 2.0), wallMat);
+    midWallL.position.set(-4.5, 3.25, 0);
+    this.mapGroup.add(midWallL);
+    this.colliders.push(new THREE.Box3().setFromObject(midWallL));
+
+    const midWallR = new THREE.Mesh(new THREE.BoxGeometry(6, 6.5, 2.0), wallMat);
+    midWallR.position.set(4.5, 3.25, 0);
+    this.mapGroup.add(midWallR);
+    this.colliders.push(new THREE.Box3().setFromObject(midWallR));
+
+    // Archway spanning across mid doors
+    const midArch = new THREE.Mesh(new THREE.BoxGeometry(5.0, 2.0, 2.0), wallMat);
+    midArch.position.set(0, 5.5, 0);
+    this.mapGroup.add(midArch);
+
+    // Iconic Mid Double Doors (Green metal with sniper peek slit)
+    const doorMat = new THREE.MeshStandardMaterial({
+      map: window.csTextures.getDustDoorTexture(),
+      roughness: 0.55,
+      metalness: 0.35
+    });
+
+    const doorL = new THREE.Mesh(new THREE.BoxGeometry(2.1, 4.2, 0.16), doorMat);
+    doorL.position.set(-1.25, 2.1, 0);
+    doorL.rotation.y = -0.22; // Slightly open
+    this.mapGroup.add(doorL);
+    this.colliders.push(new THREE.Box3().setFromObject(doorL));
+
+    const doorR = new THREE.Mesh(new THREE.BoxGeometry(2.1, 4.2, 0.16), doorMat);
+    doorR.position.set(1.25, 2.1, 0);
+    doorR.rotation.y = 0.08;
+    this.mapGroup.add(doorR);
+    this.colliders.push(new THREE.Box3().setFromObject(doorR));
+
+    // Mid cover crates
+    this.addCrate(-3.5, 1.0, -8, 2.0);
+    this.addCrate(2.5, 1.0, 8, 2.0);
+  }
+
+  // 9. B Tunnels (Upper & Lower)
+  buildTunnelsToB() {
+    const wallMat = new THREE.MeshStandardMaterial({
+      map: window.csTextures.getDustWallTexture(),
+      roughness: 0.88
+    });
+
+    // Upper B Tunnel outer walls
+    const tunnelWallW = new THREE.Mesh(new THREE.BoxGeometry(2, 6.5, 46), wallMat);
+    tunnelWallW.position.set(-28, 3.25, -24);
+    this.mapGroup.add(tunnelWallW);
+    this.colliders.push(new THREE.Box3().setFromObject(tunnelWallW));
+
+    const tunnelWallE = new THREE.Mesh(new THREE.BoxGeometry(2, 6.5, 36), wallMat);
+    tunnelWallE.position.set(-16, 3.25, -29);
+    this.mapGroup.add(tunnelWallE);
+    this.colliders.push(new THREE.Box3().setFromObject(tunnelWallE));
+
+    // Tunnel arched ceiling structures
+    for (let z = -42; z <= -8; z += 12) {
+      const arch = new THREE.Mesh(new THREE.BoxGeometry(10, 1.5, 2), wallMat);
+      arch.position.set(-22, 5.5, z);
+      this.mapGroup.add(arch);
+    }
+
+    // Lower tunnel divider wall connecting to Mid
+    const lowerDiv = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 2), wallMat);
+    lowerDiv.position.set(-11, 2.5, -11);
+    this.mapGroup.add(lowerDiv);
+    this.colliders.push(new THREE.Box3().setFromObject(lowerDiv));
+  }
+
+  // 10. Bombsite B (Platform, Ramp, B Doors & Window)
+  buildBombsiteB() {
+    const wallMat = new THREE.MeshStandardMaterial({
+      map: window.csTextures.getDustWallTexture(),
+      roughness: 0.88
+    });
+
+    // Raised B Platform (14m wide, 1.4m high, 14m deep)
+    const bPlatGeom = new THREE.BoxGeometry(14, 1.4, 14);
+    const bPlat = new THREE.Mesh(bPlatGeom, wallMat);
+    bPlat.position.set(-23, 0.7, 13);
+    bPlat.castShadow = true;
+    bPlat.receiveShadow = true;
+    this.mapGroup.add(bPlat);
+
+    this.platforms.push({
+      box: new THREE.Box3(new THREE.Vector3(-30, 0, 6), new THREE.Vector3(-16, 1.4, 20)),
+      topY: 1.4,
+      isRamp: false
+    });
+
+    // Ramp down from B Platform to B ground floor (Z: 2 to 6, rises 0 -> 1.4m)
+    const bRampGeom = new THREE.BoxGeometry(6, 1.4, 4);
+    const bRamp = new THREE.Mesh(bRampGeom, wallMat);
+    bRamp.position.set(-23, 0.7, 4);
+    bRamp.rotation.x = -0.32;
+    bRamp.castShadow = true;
+    bRamp.receiveShadow = true;
+    this.mapGroup.add(bRamp);
+
+    this.platforms.push({
+      box: new THREE.Box3(new THREE.Vector3(-26, 0, 2), new THREE.Vector3(-20, 1.4, 6)),
+      topY: 1.4,
+      isRamp: true,
+      minZ: 2,
+      maxZ: 6,
+      startY: 0,
+      endY: 1.4
+    });
+
+    // B Double Doors Gateway (leading to CT spawn)
+    const bDoorWallL = new THREE.Mesh(new THREE.BoxGeometry(4, 6.5, 2), wallMat);
+    bDoorWallL.position.set(-14, 3.25, 20);
+    this.mapGroup.add(bDoorWallL);
+    this.colliders.push(new THREE.Box3().setFromObject(bDoorWallL));
+
+    const bDoorWallR = new THREE.Mesh(new THREE.BoxGeometry(4, 6.5, 2), wallMat);
+    bDoorWallR.position.set(-6, 3.25, 20);
+    this.mapGroup.add(bDoorWallR);
+    this.colliders.push(new THREE.Box3().setFromObject(bDoorWallR));
+
+    // Green Metal B Doors
+    const doorMat = new THREE.MeshStandardMaterial({
+      map: window.csTextures.getDustDoorTexture(),
+      roughness: 0.55,
+      metalness: 0.35
+    });
+    const bDoor = new THREE.Mesh(new THREE.BoxGeometry(3.6, 4.2, 0.16), doorMat);
+    bDoor.position.set(-10, 2.1, 20);
+    bDoor.rotation.y = -0.18;
+    this.mapGroup.add(bDoor);
+
+    // B Window structure & opening
+    const bWinWall = new THREE.Mesh(new THREE.BoxGeometry(2, 6.5, 6), wallMat);
+    bWinWall.position.set(-10, 3.25, 10);
+    this.mapGroup.add(bWinWall);
+    this.colliders.push(new THREE.Box3().setFromObject(bWinWall));
+
+    this.platforms.push({
+      box: new THREE.Box3(new THREE.Vector3(-12, 0, 9), new THREE.Vector3(-8, 1.8, 13)),
+      topY: 1.8,
+      isRamp: false
+    });
+
+    // B Site Crates
+    this.addCrate(-25, 2.5, 14, 2.2); // Double stack crate
+    this.addCrate(-25, 4.7, 14, 2.2); // Top crate of double stack
+    this.addCrate(-19, 2.5, 8, 2.2);  // Big box
+    this.addCrate(-16, 2.3, 15, 1.8); // Window box
+  }
+
+  // 11. CT Spawn Area
+  buildCTSpawn() {
+    const wallMat = new THREE.MeshStandardMaterial({
+      map: window.csTextures.getDustWallTexture(),
+      roughness: 0.88
+    });
+
+    // CT Spawn protective barriers
+    const ctBar1 = new THREE.Mesh(new THREE.BoxGeometry(8, 3.0, 1.5), wallMat);
+    ctBar1.position.set(-6, 1.5, 36);
+    this.mapGroup.add(ctBar1);
+    this.colliders.push(new THREE.Box3().setFromObject(ctBar1));
+
+    const ctBar2 = new THREE.Mesh(new THREE.BoxGeometry(8, 3.0, 1.5), wallMat);
+    ctBar2.position.set(10, 1.5, 44);
+    this.mapGroup.add(ctBar2);
+    this.colliders.push(new THREE.Box3().setFromObject(ctBar2));
+
+    this.addCrate(2, 1.0, 48, 2.0);
+  }
+
+  // Helper: Adds a tactical military crate with Box3 collider
+  addCrate(x, y, z, size) {
+    const crateMat = new THREE.MeshStandardMaterial({
+      map: window.csTextures.getDustCrateTexture(),
+      roughness: 0.72,
+      metalness: 0.15
+    });
+    const geom = new THREE.BoxGeometry(size, size, size);
+    const crate = new THREE.Mesh(geom, crateMat);
+    crate.position.set(x, y, z);
+    crate.castShadow = true;
+    crate.receiveShadow = true;
+    this.mapGroup.add(crate);
+
+    const box = new THREE.Box3().setFromObject(crate);
+    this.colliders.push(box);
+    this.platforms.push({
+      box: box,
+      topY: y + size / 2,
+      isRamp: false
+    });
+  }
+
+  // 12. Bombsite A & B Ground Spray Decals
+  buildSiteDecals() {
+    const decalMatA = new THREE.MeshBasicMaterial({
+      map: window.csTextures.getSiteDecalTexture('A'),
+      transparent: true,
+      opacity: 0.88,
+      side: THREE.DoubleSide
+    });
+    const ringA = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), decalMatA);
+    ringA.rotation.x = -Math.PI / 2;
+    ringA.position.set(20, 1.62, 28); // On top of A platform
+    this.mapGroup.add(ringA);
+
+    const decalMatB = new THREE.MeshBasicMaterial({
+      map: window.csTextures.getSiteDecalTexture('B'),
+      transparent: true,
+      opacity: 0.88,
+      side: THREE.DoubleSide
+    });
+    const ringB = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), decalMatB);
+    ringB.rotation.x = -Math.PI / 2;
+    ringB.position.set(-22, 1.42, 12); // On top of B platform
+    this.mapGroup.add(ringB);
+  }
+
+  // Robust Ground Height Query (Smooth Walking, Stairs, Ramps, Zero Flying!)
+  getGroundHeight(x, z, currentY = 0) {
+    let highestGround = 0; // Default flat desert sand Y = 0
+
+    // Check all registered solid platforms and ramps
+    for (let i = 0; i < this.platforms.length; i++) {
+      const plat = this.platforms[i];
+      const box = plat.box;
+
+      // Check horizontal footprint with 0.35m character margin
+      if (x >= box.min.x - 0.35 && x <= box.max.x + 0.35 &&
+          z >= box.min.z - 0.35 && z <= box.max.z + 0.35) {
+
+        if (plat.isRamp) {
+          // Linear interpolation along ramp Z length
+          const t = Math.max(0, Math.min(1, (z - plat.minZ) / (plat.maxZ - plat.minZ)));
+          const rampY = plat.startY + (plat.endY - plat.startY) * t;
+          if (rampY > highestGround) {
+            highestGround = rampY;
+          }
+        } else {
+          // Only step onto platform if character is roughly at or above its base
+          if (currentY >= box.min.y - 0.5 && plat.topY > highestGround) {
+            highestGround = plat.topY;
+          }
+        }
+      }
+    }
+
+    return highestGround;
+  }
+
+  // Collision detection helper (ignores platform tops below feet to prevent jitter)
+  checkCollision(position, radius = 0.42, feetY = null) {
+    const playerSphere = new THREE.Sphere(position, radius);
+    for (let i = 0; i < this.colliders.length; i++) {
+      const box = this.colliders[i];
+      if (feetY !== null && box.max.y <= feetY + 0.35) {
+        continue;
+      }
+      if (box.intersectsSphere(playerSphere)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Get nearest waypoint for bots
+  getNearestWaypoint(x, z) {
+    let nearest = null;
+    let minDist = Infinity;
+    for (const wp of this.waypoints) {
+      const d = Math.hypot(wp.x - x, wp.z - z);
+      if (d < minDist) {
+        minDist = d;
+        nearest = wp;
+      }
+    }
+    return nearest;
+  }
+
+  update(delta) {
+    // Dynamic dust atmosphere update
+  }
+}
+
 // Global exposure
 window.CSBeachMap = CSBeachMap;
-window.CSDust2Map = CSBeachMap; // Backward compatibility alias
+window.CSDust2Map = CSDust2Map;
+

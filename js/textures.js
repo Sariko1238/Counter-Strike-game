@@ -1342,6 +1342,307 @@ class CSTextureGenerator {
       side: THREE.BackSide
     });
   }
+
+  // ==========================================
+  // AUTHENTIC DE_DUST2 PROCEDURAL TEXTURES
+  // ==========================================
+
+  // Dust II Desert Ground (packed sand, arid dust, cracked clay)
+  getDustGroundTexture() {
+    if (this.cache.dustGround) return this.cache.dustGround;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+
+    // Desert sandy earth base gradient
+    const grad = ctx.createLinearGradient(0, 0, 512, 512);
+    grad.addColorStop(0, '#d9b382');
+    grad.addColorStop(0.5, '#cba06f');
+    grad.addColorStop(1, '#be915e');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Weathered desert soil cracks
+    ctx.strokeStyle = 'rgba(125, 88, 48, 0.28)';
+    ctx.lineWidth = 2.2;
+    for (let i = 0; i < 28; i++) {
+      let cx = Math.random() * 512;
+      let cy = Math.random() * 512;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      for (let j = 0; j < 4; j++) {
+        cx += (Math.random() - 0.5) * 55;
+        cy += (Math.random() - 0.5) * 55;
+        ctx.lineTo(cx, cy);
+      }
+      ctx.stroke();
+    }
+
+    // Micro noise & sand grain speckles
+    const imgData = ctx.getImageData(0, 0, 512, 512);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const n = (Math.random() - 0.5) * 24;
+      d[i] = Math.min(255, Math.max(0, d[i] + n));
+      d[i + 1] = Math.min(255, Math.max(0, d[i + 1] + n * 0.9));
+      d[i + 2] = Math.min(255, Math.max(0, d[i + 2] + n * 0.75));
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    // Desert pebbles and small stones
+    for (let i = 0; i < 350; i++) {
+      const px = Math.random() * 512;
+      const py = Math.random() * 512;
+      const r = Math.random() * 2.2 + 0.8;
+      ctx.fillStyle = Math.random() > 0.5 ? '#9e7343' : '#ebd4b0';
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const tex = this.canvasToTexture(canvas, 12, 12);
+    this.cache.dustGround = tex;
+    return tex;
+  }
+
+  // Dust II Middle-Eastern Sandstone Wall & Brick Architecture
+  getDustWallTexture() {
+    if (this.cache.dustWall) return this.cache.dustWall;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+
+    // Warm sandstone base
+    ctx.fillStyle = '#e2c59b';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Sandstone block brick courses
+    const rows = 8;
+    const rowH = 512 / rows;
+    ctx.lineWidth = 3;
+
+    for (let r = 0; r <= rows; r++) {
+      const y = r * rowH;
+      // Mortar groove shadow & highlight
+      ctx.strokeStyle = '#a68052';
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(512, y);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#f5e2c5';
+      ctx.beginPath();
+      ctx.moveTo(0, y + 2);
+      ctx.lineTo(512, y + 2);
+      ctx.stroke();
+
+      // Vertical block seams
+      const cols = 4;
+      const colW = 512 / cols;
+      const offset = (r % 2) * (colW / 2);
+      for (let c = -1; c <= cols + 1; c++) {
+        const x = c * colW + offset;
+        ctx.strokeStyle = '#a68052';
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y + rowH);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#f5e2c5';
+        ctx.beginPath();
+        ctx.moveTo(x + 2, y);
+        ctx.lineTo(x + 2, y + rowH);
+        ctx.stroke();
+      }
+    }
+
+    // Weathering stains & dusty plaster gradients
+    const imgData = ctx.getImageData(0, 0, 512, 512);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const n = (Math.random() - 0.5) * 28;
+      d[i] = Math.min(255, Math.max(0, d[i] + n));
+      d[i + 1] = Math.min(255, Math.max(0, d[i + 1] + n * 0.95));
+      d[i + 2] = Math.min(255, Math.max(0, d[i + 2] + n * 0.8));
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const tex = this.canvasToTexture(canvas, 4, 3);
+    this.cache.dustWall = tex;
+    return tex;
+  }
+
+  // Dust II Military & Wooden Crates
+  getDustCrateTexture() {
+    if (this.cache.dustCrate) return this.cache.dustCrate;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+
+    // Warm aged pine wood background
+    ctx.fillStyle = '#b68853';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Planks vertical lines
+    const plankW = 512 / 5;
+    for (let i = 0; i <= 5; i++) {
+      ctx.strokeStyle = '#6f4f2a';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(i * plankW, 0);
+      ctx.lineTo(i * plankW, 512);
+      ctx.stroke();
+    }
+
+    // Heavy outer wooden border
+    ctx.lineWidth = 36;
+    ctx.strokeStyle = '#8c6035';
+    ctx.strokeRect(18, 18, 476, 476);
+
+    // Diagonal structural support braces (CS 1.6 iconic crate X)
+    ctx.lineWidth = 26;
+    ctx.strokeStyle = '#8c6035';
+    ctx.beginPath();
+    ctx.moveTo(36, 36);
+    ctx.lineTo(476, 476);
+    ctx.moveTo(476, 36);
+    ctx.lineTo(36, 476);
+    ctx.stroke();
+
+    // Steel corner brackets
+    ctx.fillStyle = '#4a5359';
+    const cornerSize = 64;
+    ctx.fillRect(0, 0, cornerSize, 18);
+    ctx.fillRect(0, 0, 18, cornerSize);
+    ctx.fillRect(512 - cornerSize, 0, cornerSize, 18);
+    ctx.fillRect(512 - 18, 0, 18, cornerSize);
+    ctx.fillRect(0, 512 - 18, cornerSize, 18);
+    ctx.fillRect(0, 512 - cornerSize, 18, cornerSize);
+    ctx.fillRect(512 - cornerSize, 512 - 18, cornerSize, 18);
+    ctx.fillRect(512 - 18, 512 - cornerSize, 18, cornerSize);
+
+    // Stencil text "FRAGILE / DUST II"
+    ctx.save();
+    ctx.fillStyle = 'rgba(38, 26, 14, 0.72)';
+    ctx.font = 'bold 32px "Share Tech Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('FRAGILE // DE_DUST2', 256, 266);
+    ctx.font = 'bold 20px monospace';
+    ctx.fillText('TACTICAL RESUPPLY', 256, 304);
+    ctx.restore();
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    this.cache.dustCrate = tex;
+    return tex;
+  }
+
+  // Dust II Iconic Green Metal Double Doors (Mid Doors & B Doors)
+  getDustDoorTexture() {
+    if (this.cache.dustDoor) return this.cache.dustDoor;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+
+    // Authentic CS 1.6 olive military green metal
+    ctx.fillStyle = '#4a5d45';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Heavy reinforced metal perimeter trim
+    ctx.lineWidth = 28;
+    ctx.strokeStyle = '#2d3b2a';
+    ctx.strokeRect(14, 14, 484, 484);
+
+    // Center divider seam
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = '#1d271b';
+    ctx.beginPath();
+    ctx.moveTo(256, 0);
+    ctx.lineTo(256, 512);
+    ctx.stroke();
+
+    // Rivet studs along panels
+    ctx.fillStyle = '#6b7f65';
+    for (let y = 30; y < 500; y += 45) {
+      ctx.beginPath();
+      ctx.arc(36, y, 4, 0, Math.PI * 2);
+      ctx.arc(240, y, 4, 0, Math.PI * 2);
+      ctx.arc(272, y, 4, 0, Math.PI * 2);
+      ctx.arc(476, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Heavy door pull handles
+    ctx.fillStyle = '#1e241c';
+    ctx.fillRect(215, 230, 16, 75);
+    ctx.fillRect(281, 230, 16, 75);
+    ctx.fillStyle = '#7a8e73';
+    ctx.fillRect(218, 233, 10, 69);
+    ctx.fillRect(284, 233, 10, 69);
+
+    // Stencil Arabic / Military warning markings
+    ctx.save();
+    ctx.fillStyle = 'rgba(235, 205, 145, 0.7)';
+    ctx.font = 'bold 24px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('ZONE 8 // DANGER', 256, 120);
+    ctx.restore();
+
+    // Scratches & bullet impact scrapes
+    ctx.strokeStyle = 'rgba(180, 200, 175, 0.35)';
+    ctx.lineWidth = 1.8;
+    for (let i = 0; i < 20; i++) {
+      const sx = Math.random() * 450 + 30;
+      const sy = Math.random() * 450 + 30;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + (Math.random() - 0.5) * 35, sy + (Math.random() - 0.5) * 35);
+      ctx.stroke();
+    }
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    this.cache.dustDoor = tex;
+    return tex;
+  }
+
+  // Dust II Desert Sky Material (blazing sun, arid horizon, warm midday haze)
+  getDustSkyMaterial() {
+    const { canvas, ctx } = this.createCanvas(1024, 512);
+
+    // Warm desert sky gradient (from azure blue zenith to warm sandy horizon)
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, 512);
+    skyGrad.addColorStop(0, '#3a7bd5');     // Deep blue zenith
+    skyGrad.addColorStop(0.35, '#68a0e8');  // Clear midday blue
+    skyGrad.addColorStop(0.70, '#b8d6f5');  // Bright horizon atmosphere
+    skyGrad.addColorStop(0.92, '#eedbc5');  // Warm dust haze
+    skyGrad.addColorStop(1, '#dfc49e');     // Sandy horizon line
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, 1024, 512);
+
+    // Distant arid mountain silhouettes along horizon
+    ctx.fillStyle = 'rgba(175, 142, 108, 0.45)';
+    ctx.beginPath();
+    ctx.moveTo(0, 512);
+    let my = 420;
+    for (let mx = 0; mx <= 1024; mx += 32) {
+      my = 400 + Math.sin(mx * 0.015) * 35 + Math.cos(mx * 0.04) * 18;
+      ctx.lineTo(mx, my);
+    }
+    ctx.lineTo(1024, 512);
+    ctx.closePath();
+    ctx.fill();
+
+    // Blazing Middle-Eastern Sun with intense lens flare
+    const sunX = 512;
+    const sunY = 120;
+    const sunGlow = ctx.createRadialGradient(sunX, sunY, 15, sunX, sunY, 260);
+    sunGlow.addColorStop(0, 'rgba(255, 255, 245, 1.0)');
+    sunGlow.addColorStop(0.12, 'rgba(255, 250, 200, 0.95)');
+    sunGlow.addColorStop(0.35, 'rgba(255, 220, 130, 0.50)');
+    sunGlow.addColorStop(0.70, 'rgba(255, 180, 80, 0.18)');
+    sunGlow.addColorStop(1, 'rgba(255, 140, 50, 0)');
+    ctx.fillStyle = sunGlow;
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, 260, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    return new THREE.MeshBasicMaterial({
+      map: tex,
+      side: THREE.BackSide
+    });
+  }
 }
 
 // Global texture generator instance

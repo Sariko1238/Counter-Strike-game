@@ -27,13 +27,20 @@
   <!-- 3D Canvas Container -->
   <div id="game-container"></div>
 
-  <!-- CS 1.6 Dynamic Crosshair & Switchable Reticles -->
+  <!-- CS 1.6 Dynamic Crosshair & Switchable Reticles with Tactical Hitmarker -->
   <div id="crosshair" class="crosshair-green reticle-cs_classic">
     <div class="ch-part ch-top"></div>
     <div class="ch-part ch-bottom"></div>
     <div class="ch-part ch-left"></div>
     <div class="ch-part ch-right"></div>
     <div class="ch-dot"></div>
+    <!-- Tactical Hitmarker (White for body, Red for Headshot) -->
+    <div id="hitmarker" class="hidden">
+      <div class="hm-tick hm-tl"></div>
+      <div class="hm-tick hm-tr"></div>
+      <div class="hm-tick hm-bl"></div>
+      <div class="hm-tick hm-br"></div>
+    </div>
   </div>
 
   <!-- Sniper Scope Overlay (AWP) -->
@@ -88,10 +95,11 @@
       <div id="killfeed"></div>
     </div>
 
-    <!-- Center Screen Alerts (Headshot, Announcements, Radio) -->
+    <!-- Center Screen Alerts (Headshot, Announcements, Radio, Elimination) -->
     <div id="announcement-banner" class="hidden">
       <div id="announcement-text">TERRORISTS WIN</div>
     </div>
+    <div id="kill-streak-banner" class="hidden"></div>
     <div id="radio-subtitle" class="hidden"></div>
 
     <!-- Bottom Bar: Health, Armor, Clock, Money, Ammo -->
@@ -109,19 +117,19 @@
         <!-- Spawn Shield Invulnerability Indicator -->
         <div id="spawn-shield-indicator" class="hud-box shield-badge hidden">
           <span class="shield-badge-icon">🛡️</span>
-          <span class="shield-badge-text">ЩИТ: <span id="shield-timer-val">2.0с</span></span>
+          <span class="shield-badge-text"><span data-i18n="shield_label">ЩИТ:</span> <span id="shield-timer-val">2.0с</span></span>
         </div>
       </div>
 
       <!-- Interaction Prompt (Plant C4 / Defuse C4) -->
       <div id="interaction-prompt" class="hidden">
         <span class="prompt-key">[E]</span>
-        <span id="interaction-prompt-text">УДЕРЖИВАЙТЕ ДЛЯ ОБЕЗВРЕЖИВАНИЯ</span>
+        <span id="interaction-prompt-text" data-i18n="prompt_defuse">УДЕРЖИВАЙТЕ ДЛЯ ОБЕЗВРЕЖИВАНИЯ</span>
       </div>
 
       <!-- Defusing / Planting Progress Bar -->
       <div id="action-bar-container" class="hidden">
-        <div id="action-bar-label">РАЗМИНИРОВАНИЕ...</div>
+        <div id="action-bar-label" data-i18n="action_defusing">РАЗМИНИРОВАНИЕ...</div>
         <div class="action-bar-track">
           <div id="action-bar-fill"></div>
         </div>
@@ -148,24 +156,24 @@
   <!-- Death & Respawn Overlay Screen -->
   <div id="death-overlay" class="hidden">
     <div class="death-panel">
-      <div class="death-header">ВЫ ПОГИБЛИ</div>
-      <div id="death-killer-info" class="death-sub">Убит противником</div>
+      <div class="death-header" data-i18n="death_title">ВЫ ПОГИБЛИ</div>
+      <div id="death-killer-info" class="death-sub" data-i18n="death_killer">Убит противником</div>
 
       <div class="death-countdown-box">
-        <span class="death-countdown-label">Автоматическое возрождение через:</span>
+        <span class="death-countdown-label" data-i18n="death_countdown_label">Автоматическое возрождение через:</span>
         <span id="respawn-countdown-val" class="death-countdown-num">3</span>
-        <span class="death-countdown-sec">сек</span>
+        <span class="death-countdown-sec" data-i18n="death_sec">сек</span>
       </div>
 
       <div class="death-actions">
         <button id="btn-respawn" class="death-action-btn primary-respawn">
           <span class="key-badge">ПРОБЕЛ / E</span>
-          <span class="action-text">Возродиться сейчас (Respawn)</span>
+          <span class="action-text" data-i18n="death_btn">Возродиться сейчас (Respawn)</span>
         </button>
       </div>
 
       <div class="spectator-bar" id="spectator-bar">
-        <span id="spectator-target-name">Режим «1 против 5» • Нажмите [ПРОБЕЛ] или [E] для немедленного возрождения</span>
+        <span id="spectator-target-name" data-i18n="death_spectator">Режим «1 против 5» • Нажмите [ПРОБЕЛ] или [E] для немедленного возрождения</span>
       </div>
     </div>
   </div>
@@ -176,56 +184,66 @@
       <!-- Left Sidebar: Controls & Play Button -->
       <div class="lobby-sidebar">
         <div class="cs-logo-banner">
-          <div class="cs-title">COUNTER-STRIKE <span>GO</span></div>
-          <div class="cs-subtitle">РЕЖИМ «1 ПРОТИВ 5» • 3D LOBBY SHOWCASE</div>
+          <div class="banner-top-row">
+            <div class="cs-title" data-i18n-html="game_title">COUNTER-STRIKE <span>GO</span></div>
+            <button id="btn-lang-toggle" class="lang-toggle-btn" title="Сменить язык / Switch Language">🌐 <b>RU</b> / EN</button>
+          </div>
+          <div class="cs-subtitle" data-i18n="game_subtitle">РЕЖИМ «1 ПРОТИВ 5» • 3D LOBBY SHOWCASE</div>
         </div>
 
         <div class="menu-actions top-actions">
           <button id="btn-start-game" class="cs-btn-primary lobby-play-btn">
-            <span class="play-icon">▶</span> В БОЙ (PLAY)
+            <span class="play-icon">▶</span> <span class="play-text" data-i18n="play_btn">В БОЙ (PLAY)</span>
           </button>
-          <button id="btn-restart-game" class="cs-btn-secondary hidden">НАЧАТЬ ЗАНОВО</button>
+          <button id="btn-restart-game" class="cs-btn-secondary hidden" data-i18n="restart_btn">НАЧАТЬ ЗАНОВО</button>
         </div>
 
         <div class="team-select-container">
-          <h3>ВЫБОР СТОРОНЫ (TEAM SELECTION)</h3>
+          <h3 data-i18n="team_selection_title">ВЫБОР СТОРОНЫ (TEAM SELECTION)</h3>
           <div class="team-buttons">
             <button id="btn-join-ct" class="team-btn ct-btn active">
               <span class="team-icon">👮</span>
-              <span class="team-name">1 CT ПРОТИВ 5 T</span>
-              <span class="team-desc">Спецназ SAS. 5 врагов с бесконечным респавном.</span>
+              <span class="team-name" data-i18n="team_ct_title">1 CT ПРОТИВ 5 T</span>
+              <span class="team-desc" data-i18n="team_ct_desc">Спецназ SAS. 5 врагов с бесконечным респавном.</span>
             </button>
             <button id="btn-join-t" class="team-btn t-btn">
               <span class="team-icon">🥷</span>
-              <span class="team-name">1 T ПРОТИВ 5 CT</span>
-              <span class="team-desc">Террористы Phoenix. 5 спецназовцев с бесконечным респавном.</span>
+              <span class="team-name" data-i18n="team_t_title">1 T ПРОТИВ 5 CT</span>
+              <span class="team-desc" data-i18n="team_t_desc">Террористы Phoenix. 5 спецназовцев с бесконечным респавном.</span>
             </button>
           </div>
         </div>
 
         <div class="lobby-accordion-section">
           <div class="game-settings-grid">
+            <div class="setting-item map-item">
+              <label for="select-map" data-i18n="setting_map">Выбор Карты:</label>
+              <select id="select-map">
+                <option value="dust2" selected data-i18n="map_dust2">🏜️ de_dust2 (Легендарный Даст 2)</option>
+                <option value="beach" data-i18n="map_beach">🏖️ de_beach (Тропический курорт)</option>
+              </select>
+            </div>
             <div class="setting-item">
-              <label for="select-difficulty">Сложность Ботов:</label>
+              <label for="select-difficulty" data-i18n="setting_difficulty">Сложность Ботов:</label>
               <select id="select-difficulty">
-                <option value="easy">Легко (Easy)</option>
-                <option value="normal" selected>Средне (Normal)</option>
-                <option value="hard">Профи (CS Veteran)</option>
+                <option value="easy" data-i18n="diff_easy">Легко (Easy)</option>
+                <option value="normal" selected data-i18n="diff_normal">Средне (Normal)</option>
+                <option value="hard" data-i18n="diff_hard">Профи (CS Veteran)</option>
               </select>
             </div>
             <div class="setting-item">
-              <label for="select-bot-count">Количество Врагов:</label>
+              <label for="select-bot-count" data-i18n="setting_enemies">Количество Врагов:</label>
               <select id="select-bot-count" disabled>
-                <option value="5" selected>5 Врагов (Режим 1 vs 5)</option>
+                <option value="5" selected data-i18n="enemies_count">5 Врагов (Режим 1 vs 5)</option>
               </select>
             </div>
             <div class="setting-item">
-              <label for="range-sensitivity">Чувствительность Мыши:</label>
+              <label for="range-sensitivity" data-i18n="setting_sens">Чувствительность Мыши:</label>
               <input type="range" id="range-sensitivity" min="0.5" max="3.0" step="0.1" value="1.2">
               <span id="sens-val">1.2</span>
             </div>
             <div class="setting-item">
-              <label for="range-volume">Громкость Звука:</label>
+              <label for="range-volume" data-i18n="setting_vol">Громкость Звука:</label>
               <input type="range" id="range-volume" min="0" max="1.0" step="0.05" value="0.7">
               <span id="vol-val">70%</span>
             </div>
@@ -233,84 +251,84 @@
 
           <!-- Кастомизация: Скины Minecraft, CS Скины оружия и Прицелы -->
           <div class="customization-section">
-            <h3>🎨 КАСТОМИЗАЦИЯ И СКИHЫ</h3>
+            <h3 data-i18n="customization_title">🎨 КАСТОМИЗАЦИЯ И СКИНЫ</h3>
             <div class="customization-grid">
               <div class="setting-item">
-                <label for="select-char-skin">Скин Персонажа:</label>
+                <label for="select-char-skin" data-i18n="setting_char_skin">Скин Персонажа:</label>
                 <select id="select-char-skin">
-                  <option value="default" selected>👮 Классический CS (Спецназ / Т)</option>
-                  <option value="steve">⛏️ Стив (Minecraft Steve)</option>
-                  <option value="creeper">💥 Крипер (Minecraft Creeper)</option>
-                  <option value="diamond">💎 Алмазный Стив (Diamond Armor)</option>
+                  <option value="default" selected data-i18n="skin_char_default">👮 Классический CS (Спецназ / Т)</option>
+                  <option value="steve" data-i18n="skin_char_steve">⛏️ Стив (Minecraft Steve)</option>
+                  <option value="creeper" data-i18n="skin_char_creeper">💥 Крипер (Minecraft Creeper)</option>
+                  <option value="diamond" data-i18n="skin_char_diamond">💎 Алмазный Стив (Diamond Armor)</option>
                 </select>
               </div>
               <div class="setting-item">
-                <label for="select-reticle">Стиль Прицела [H]:</label>
+                <label for="select-reticle" data-i18n="setting_reticle">Стиль Прицела [H]:</label>
                 <select id="select-reticle">
-                  <option value="red_dot">🔴 Red Dot (Коллиматорная точка)</option>
-                  <option value="holographic">⭕ EOTech (Голографический круг)</option>
-                  <option value="tactical_cross">🟢 Tactical Cross (Тактический)</option>
-                  <option value="mil_dot">🎯 Mil-Dot (Снайперский)</option>
-                  <option value="cs_classic" selected>➕ CS Classic (Динамический)</option>
+                  <option value="red_dot" data-i18n="reticle_red_dot">🔴 Red Dot (Коллиматорная точка)</option>
+                  <option value="holographic" data-i18n="reticle_holographic">⭕ EOTech (Голографический круг)</option>
+                  <option value="tactical_cross" data-i18n="reticle_tactical_cross">🟢 Tactical Cross (Тактический)</option>
+                  <option value="mil_dot" data-i18n="reticle_mil_dot">🎯 Mil-Dot (Снайперский)</option>
+                  <option value="cs_classic" selected data-i18n="reticle_cs_classic">➕ CS Classic (Динамический)</option>
                 </select>
               </div>
               <div class="setting-item">
-                <label for="select-awp-skin">Скин AWP:</label>
+                <label for="select-awp-skin" data-i18n="setting_awp_skin">Скин AWP:</label>
                 <select id="select-awp-skin">
-                  <option value="dragon_lore" selected>🐉 AWP | Dragon Lore (Дракон)</option>
-                  <option value="default">Классический AWP</option>
+                  <option value="dragon_lore" selected data-i18n="awp_dragon_lore">🐉 AWP | Dragon Lore (Дракон)</option>
+                  <option value="default" data-i18n="awp_default">Классический AWP</option>
                 </select>
               </div>
               <div class="setting-item">
-                <label for="select-ak-skin">Скин AK-47:</label>
+                <label for="select-ak-skin" data-i18n="setting_ak_skin">Скин AK-47:</label>
                 <select id="select-ak-skin">
-                  <option value="asiimov" selected>⚡ AK-47 | Asiimov (Азимов)</option>
-                  <option value="default">Классическое дерево</option>
+                  <option value="asiimov" selected data-i18n="ak_asiimov">⚡ AK-47 | Asiimov (Азимов)</option>
+                  <option value="default" data-i18n="ak_default">Классическое дерево</option>
                 </select>
               </div>
               <div class="setting-item">
-                <label for="select-m4-skin">Скин M4A1:</label>
+                <label for="select-m4-skin" data-i18n="setting_m4_skin">Скин M4A1:</label>
                 <select id="select-m4-skin">
-                  <option value="howl" selected>🐺 M4A1 | Howl (Вой)</option>
-                  <option value="default">Классический M4A1</option>
+                  <option value="howl" selected data-i18n="m4_howl">🐺 M4A1 | Howl (Вой)</option>
+                  <option value="default" data-i18n="m4_default">Классический M4A1</option>
                 </select>
               </div>
               <div class="setting-item">
-                <label for="select-deagle-skin">Скин Deagle:</label>
+                <label for="select-deagle-skin" data-i18n="setting_deagle_skin">Скин Deagle:</label>
                 <select id="select-deagle-skin">
-                  <option value="printstream" selected>✨ Deagle | Printstream (Перламутр)</option>
-                  <option value="default">Классическая сталь</option>
+                  <option value="printstream" selected data-i18n="deagle_printstream">✨ Deagle | Printstream (Перламутр)</option>
+                  <option value="default" data-i18n="deagle_default">Классическая сталь</option>
                 </select>
               </div>
               <div class="setting-item">
-                <label for="select-knife-skin">Скин Ножа:</label>
+                <label for="select-knife-skin" data-i18n="setting_knife_skin">Скин Ножа:</label>
                 <select id="select-knife-skin">
-                  <option value="doppler" selected>🔮 Керамбит | Doppler Phase 2 & Fade</option>
-                  <option value="default">Стандартный штык-нож</option>
+                  <option value="doppler" selected data-i18n="knife_doppler">🔮 Керамбит | Doppler Phase 2 & Fade</option>
+                  <option value="default" data-i18n="knife_default">Стандартный штык-нож</option>
                 </select>
               </div>
               <div class="setting-item">
-                <label for="select-scout-skin">Скин SSG 08:</label>
+                <label for="select-scout-skin" data-i18n="setting_scout_skin">Скин SSG 08:</label>
                 <select id="select-scout-skin">
-                  <option value="bloodsport" selected>🏎️ SSG 08 | Bloodsport (Спорт)</option>
-                  <option value="default">Классический Scout</option>
+                  <option value="bloodsport" selected data-i18n="scout_bloodsport">🏎️ SSG 08 | Bloodsport (Спорт)</option>
+                  <option value="default" data-i18n="scout_default">Классический Scout</option>
                 </select>
               </div>
             </div>
           </div>
 
           <div class="controls-guide">
-            <h4>УПРАВЛЕНИЕ:</h4>
+            <h4 data-i18n="controls_title">УПРАВЛЕНИЕ:</h4>
             <div class="controls-grid">
-              <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Движение</div>
-              <div><kbd>ЛКМ</kbd> Стрельба / Удар</div>
-              <div><kbd>ПКМ</kbd> Зум / Прицел ADS</div>
-              <div><kbd>R</kbd> Перезарядка</div>
-              <div><kbd>ПРОБЕЛ</kbd> Прыжок / Респавн</div>
-              <div><kbd>CTRL</kbd> Присесть (кучность ↑)</div>
-              <div><kbd>1</kbd>–<kbd>5</kbd> Оружие (5 = C4)</div>
-              <div><kbd>B</kbd> Магазин оружия</div>
-              <div><kbd>TAB</kbd> Таблица счета</div>
+              <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> <span data-i18n="ctrl_movement">Движение</span></div>
+              <div><kbd>ЛКМ</kbd> <span data-i18n="ctrl_fire">Стрельба / Удар</span></div>
+              <div><kbd>ПКМ</kbd> <span data-i18n="ctrl_zoom">Зум / Прицел ADS</span></div>
+              <div><kbd>R</kbd> <span data-i18n="ctrl_reload">Перезарядка</span></div>
+              <div><kbd>ПРОБЕЛ</kbd> <span data-i18n="ctrl_jump">Прыжок / Респавн</span></div>
+              <div><kbd>CTRL</kbd> <span data-i18n="ctrl_crouch">Присесть (кучность ↑)</span></div>
+              <div><kbd>1</kbd>–<kbd>5</kbd> <span data-i18n="ctrl_weapons">Оружие (5 = C4)</span></div>
+              <div><kbd>B</kbd> <span data-i18n="ctrl_buy">Магазин оружия</span></div>
+              <div><kbd>TAB</kbd> <span data-i18n="ctrl_score">Таблица счета</span></div>
             </div>
           </div>
         </div>
@@ -319,10 +337,10 @@
       <!-- Right Side: Operative Badge Card (3D Model renders in background) -->
       <div class="lobby-operative-showcase">
         <div id="lobby-op-badge" class="operative-badge">
-          <div class="op-team-tag" id="lobby-op-team">СПЕЦНАЗ (CT)</div>
+          <div class="op-team-tag" id="lobby-op-team" data-i18n="badge_team_ct">СПЕЦНАЗ (CT)</div>
           <div class="op-title" id="lobby-op-title">SAS OPERATIVE</div>
-          <div class="op-weapon-tag" id="lobby-op-weapon">ВООРУЖЕНИЕ: M4A1 CARBINE</div>
-          <div class="op-status-tag">STATUS: READY FOR COMBAT</div>
+          <div class="op-weapon-tag" id="lobby-op-weapon" data-i18n="badge_wpn_m4">ВООРУЖЕНИЕ: M4A1 CARBINE</div>
+          <div class="op-status-tag" data-i18n="badge_status">STATUS: READY FOR COMBAT</div>
         </div>
       </div>
     </div>
@@ -332,14 +350,14 @@
   <div id="buy-menu" class="hidden">
     <div class="buy-menu-panel">
       <div class="buy-header">
-        <span>МАГАЗИН ОРУЖИЯ (BUY MENU)</span>
-        <span class="buy-money">Баланс: <span id="buy-current-money">$16000</span></span>
+        <span data-i18n="buy_title">МАГАЗИН ОРУЖИЯ (BUY MENU)</span>
+        <span class="buy-money"><span data-i18n="buy_balance">Баланс:</span> <span id="buy-current-money">$16000</span></span>
         <button id="btn-close-buy" class="buy-close-btn">&times;</button>
       </div>
 
       <div class="buy-categories">
         <div class="buy-category">
-          <h3>1. ПИСТОЛЕТЫ</h3>
+          <h3 data-i18n="buy_pistols">1. ПИСТОЛЕТЫ</h3>
           <button class="buy-item-btn" data-weapon="glock" data-cost="400">
             <span class="b-name">1. Glock-18 (9mm)</span>
             <span class="b-price">$400</span>
@@ -355,7 +373,7 @@
         </div>
 
         <div class="buy-category">
-          <h3>2. ВИНТОВКИ И СНАЙПЕРКИ</h3>
+          <h3 data-i18n="buy_rifles">2. ВИНТОВКИ И СНАЙПЕРКИ</h3>
           <button class="buy-item-btn" data-weapon="ak47" data-cost="2500">
             <span class="b-name">1. CV-47 (AK-47 | Asiimov)</span>
             <span class="b-price">$2500</span>
@@ -379,26 +397,26 @@
         </div>
 
         <div class="buy-category">
-          <h3>3. СНАРЯЖЕНИЕ</h3>
+          <h3 data-i18n="buy_equipment">3. СНАРЯЖЕНИЕ</h3>
           <button class="buy-item-btn" data-weapon="armor" data-cost="1000">
-            <span class="b-name">1. Броня + Шлем</span>
+            <span class="b-name" data-i18n="buy_armor">1. Броня + Шлем</span>
             <span class="b-price">$1000</span>
           </button>
           <button class="buy-item-btn" data-weapon="hegrenade" data-cost="300">
-            <span class="b-name">2. Осколочная граната HE</span>
+            <span class="b-name" data-i18n="buy_he">2. Осколочная граната HE</span>
             <span class="b-price">$300</span>
           </button>
           <button class="buy-item-btn" data-weapon="defusekit" data-cost="200">
-            <span class="b-name">3. Набор сапера (Defuse Kit)</span>
+            <span class="b-name" data-i18n="buy_kit">3. Набор сапера (Defuse Kit)</span>
             <span class="b-price">$200</span>
           </button>
           <button class="buy-item-btn" data-weapon="ammo" data-cost="100">
-            <span class="b-name">4. Полный боекомплект</span>
+            <span class="b-name" data-i18n="buy_ammo">4. Полный боекомплект</span>
             <span class="b-price">$100</span>
           </button>
         </div>
       </div>
-      <div class="buy-footer">Нажмите [B] или [ESC] чтобы закрыть магазин</div>
+      <div class="buy-footer" data-i18n="buy_footer">Нажмите [B] или [ESC] чтобы закрыть магазин</div>
     </div>
   </div>
 
@@ -406,8 +424,8 @@
   <div id="scoreboard" class="hidden">
     <div class="sb-container">
       <div class="sb-header">
-        <div class="sb-title">DE_BEACH - СЧЁТ МАТЧА</div>
-        <div class="sb-sub">Counter-Strike 1.6 Dedicated Engine — Tropical Coastline</div>
+        <div class="sb-title" id="sb-map-title">DE_DUST2 - СЧЁТ МАТЧА</div>
+        <div class="sb-sub" data-i18n="sb_subtitle">Counter-Strike 1.6 Dedicated Engine</div>
       </div>
 
       <div class="sb-teams">
@@ -419,7 +437,12 @@
           </div>
           <table class="sb-table">
             <thead>
-              <tr><th>Игрок</th><th>Убийств</th><th>Смертей</th><th>Статус</th></tr>
+              <tr>
+                <th data-i18n="sb_col_player">Игрок</th>
+                <th data-i18n="sb_col_kills">Убийств</th>
+                <th data-i18n="sb_col_deaths">Смертей</th>
+                <th data-i18n="sb_col_status">Статус</th>
+              </tr>
             </thead>
             <tbody id="sb-ct-body"></tbody>
           </table>
@@ -433,7 +456,12 @@
           </div>
           <table class="sb-table">
             <thead>
-              <tr><th>Игрок</th><th>Убийств</th><th>Смертей</th><th>Статус</th></tr>
+              <tr>
+                <th data-i18n="sb_col_player">Игрок</th>
+                <th data-i18n="sb_col_kills">Убийств</th>
+                <th data-i18n="sb_col_deaths">Смертей</th>
+                <th data-i18n="sb_col_status">Статус</th>
+              </tr>
             </thead>
             <tbody id="sb-t-body"></tbody>
           </table>
@@ -442,7 +470,8 @@
     </div>
   </div>
 
-  <!-- Audio, Textures, Weapons, Map, Player, Bot, Lobby, Game scripts -->
+  <!-- Localization, Audio, Textures, Weapons, Map, Player, Bot, Lobby, Game scripts -->
+  <script src="js/i18n.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/textures.js"></script>
   <script src="js/weapons.js"></script>
