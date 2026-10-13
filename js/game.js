@@ -68,15 +68,20 @@ class CSGame {
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 350);
     this.scene.add(this.camera);
 
-    // 3. WebGL Renderer
+    // 3. WebGL Renderer with Realistic 3D Shaders & Filmic Tone Mapping
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // Photorealistic ACES Filmic tone mapping & sRGB color pipeline
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.15;
+    this.renderer.outputEncoding = THREE.sRGBEncoding;
+    this.renderer.physicallyCorrectLights = true;
     this.container.appendChild(this.renderer.domElement);
 
-    // 4. Map & Player (loads selected map: de_dust2 or de_beach)
+    // 4. Map & Player (loads selected map: de_minecraft, de_dust2 or de_beach)
     this.map = null;
     this.loadMap(this.selectedMap, false);
 
