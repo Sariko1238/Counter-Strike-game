@@ -404,6 +404,15 @@ class CSPlayer {
     this.updateSniperOverlay();
     this.updateHUD();
     this.updateSpawnShieldHUD();
+
+    // Clear cinematic death state
+    this.isDeathFalling = false;
+    this._deathShakeTimer = 0;
+    this.pitch = 0;
+    const dimOverlay = document.getElementById('death-dim-overlay');
+    if (dimOverlay) dimOverlay.remove();
+    const dmgOverlay = document.getElementById('damage-overlay');
+    if (dmgOverlay) { dmgOverlay.style.transition = 'opacity 0.3s'; dmgOverlay.style.opacity = '0'; }
   }
 
   respawn(spawnPoint) {
@@ -1015,14 +1024,69 @@ class CSPlayer {
       window.csAudio.playDeathSound(isHeadshot);
     }
 
-    // Drop camera down to ground and roll (death ragdoll view)
-    this.eyeHeight = 0.22;
-    this.cameraRoll = 0.42;
+    // -- Cinematic death fall: camera tilts and sinks toward ground --
+    this.deathFallTimer = 0;
+    this.deathFallDuration = isHeadshot ? 0.55 : 0.80;
+    this.deathStartEyeHeight = this.eyeHeight;
+    this.deathStartRoll = this.cameraRoll;
+    // Random tilt direction (left/right)
+    const tiltSign = Math.random() < 0.5 ? 1 : -1;
+    this.deathTargetRoll = tiltSign * (isHeadshot ? 1.1 : 0.65);
+    this.deathTargetPitch = isHeadshot ? -0.35 : 0.15; // snap to side on headshot
+    this.isDeathFalling = true;
+
+    // Camera shake burst on death
+    this._deathShakeTimer = isHeadshot ? 0.45 : 0.25;
+    this._deathShakeIntensity = isHeadshot ? 0.025 : 0.012;
+
+    // Cinematic red vignette that fades in slowly
+    this._startDeathVignette(isHeadshot);
 
     window.csGame.handlePlayerDeath(this, attacker, isHeadshot);
   }
 
+  _startDeathVignette(isHeadshot) {
+    const overlay = document.getElementById('damage-overlay');
+    if (!overlay) return;
+
+    // Initial violent red flash on kill shot
+    overlay.style.transition = 'opacity 0.05s ease-out';
+    overlay.style.opacity = '0.95';
+
+    // Then slowly fade to dark desaturated vignette
+    setTimeout(() => {
+      overlay.style.transition = 'opacity 2.5s ease-in';
+      overlay.style.opacity = '0.5';
+    }, isHeadshot ? 80 : 120);
+
+    // After overlay settles, let CSS handle it
+    // Add extra dark-screen class for death
+    const deathDim = document.getElementById('death-dim-overlay');
+    if (!deathDim) {
+      const dim = document.createElement('div');
+      dim.id = 'death-dim-overlay';
+      dim.style.cssText = [
+        'position:fixed', 'inset:0', 'z-index:89',
+        'background:radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.0) 100%)',
+        'pointer-events:none', 'transition:background 2s ease-in'
+      ].join(';');
+      document.body.appendChild(dim);
+      setTimeout(() => {
+        dim.style.background = 'radial-gradient(ellipse at center, rgba(50,0,0,0.25) 20%, rgba(0,0,0,0.72) 100%)';
+      }, 300);
+    }
+  }
+
   updateDeathCam(delta) {
+    // Camera shake on death
+    if (this._deathShakeTimer > 0) {
+      this._deathShakeTimer -= delta;
+      const shake = this._deathShakeIntensity * (this._deathShakeTimer > 0 ? 1 : 0);
+      this.camera.position.x += (Math.random() - 0.5) * shake;
+      this.camera.position.y += (Math.random() - 0.5) * shake;
+      this.camera.position.z += (Math.random() - 0.5) * shake;
+    }
+
     if (window.csGame && window.csGame.spectatingBot) {
       const specBot = window.csGame.spectatingBot;
       if (specBot && !specBot.isDead && specBot.position) {
@@ -1041,16 +1105,39 @@ class CSPlayer {
       }
     }
 
-    // Classic CS Ragdoll Ground Cam: smoothly drop to floor with tilted camera
     const groundY = (this.map && this.map.getGroundHeight)
       ? this.map.getGroundHeight(this.position.x, this.position.z, this.position.y)
       : 0;
-    const targetCamY = groundY + 0.22;
+
+    // Animated cinematic death fall
+    if (this.isDeathFalling) {
+      this.deathFallTimer += delta;
+      const t = Math.min(1, this.deathFallTimer / this.deathFallDuration);
+      // Ease-out cubic for smooth deceleration
+      const ease = 1 - Math.pow(1 - t, 3);
+
+      // Eye height drops from standing to floor
+      const targetEyeH = groundY + 0.12;
+      this.eyeHeight = THREE.MathUtils.lerp(this.deathStartEyeHeight, targetEyeH, ease);
+
+      // Camera rolls (tilt to side)
+      this.cameraRoll = THREE.MathUtils.lerp(this.deathStartRoll, this.deathTargetRoll, ease);
+
+      // Slight pitch shift
+      this.pitch = THREE.MathUtils.lerp(this.pitch, this.deathTargetPitch || 0, ease * 0.6);
+
+      if (t >= 1) {
+        this.isDeathFalling = false;
+        this.eyeHeight = targetEyeH;
+      }
+    }
+
+    // Lock camera to floor position
+    const targetCamY = groundY + this.eyeHeight;
     this.camera.position.x = this.position.x;
-    this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, targetCamY, delta * 6);
+    this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, targetCamY, delta * 8);
     this.camera.position.z = this.position.z;
 
-    this.cameraRoll = THREE.MathUtils.lerp(this.cameraRoll, 0.42, delta * 6);
     this.camera.rotation.order = 'YXZ';
     this.camera.rotation.y = this.yaw;
     this.camera.rotation.x = this.pitch;
