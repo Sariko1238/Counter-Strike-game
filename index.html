@@ -67,12 +67,12 @@
   <div id="hud">
     <!-- Top Bar: Radar & Round Info & Killfeed -->
     <div class="hud-top">
-      <!-- Radar -->
-      <div id="radar-container">
-        <canvas id="radar-canvas" width="160" height="160"></canvas>
-        <div class="radar-scanline"></div>
-        <div class="radar-site-label site-a">A</div>
-        <div class="radar-site-label site-b">B</div>
+      <!-- Top Left: Mission Status Badge -->
+      <div class="hud-top-left">
+        <div class="hud-mission-badge">
+          <span class="badge-dot"></span>
+          <span class="badge-text" data-i18n="mission_mode">DE_OPS • 1 VS 5</span>
+        </div>
       </div>
 
       <!-- Center Top: Score & Round Timer -->
@@ -230,7 +230,8 @@
             <div class="setting-item map-item">
               <label for="select-map" data-i18n="setting_map">Выбор Карты:</label>
               <select id="select-map">
-                <option value="dust2" selected data-i18n="map_dust2">🏜️ de_dust2 (Легендарный Даст 2)</option>
+                <option value="minecraft" selected data-i18n="map_minecraft">🧱 de_minecraft (Мир Майнкрафт - Трава, Камень, Дерево)</option>
+                <option value="dust2" data-i18n="map_dust2">🏜️ de_dust2 (Легендарный Даст 2)</option>
                 <option value="beach" data-i18n="map_beach">🏖️ de_beach (Тропический курорт)</option>
               </select>
             </div>

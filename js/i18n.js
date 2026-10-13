@@ -21,8 +21,10 @@ const CS_TRANSLATIONS = {
 
     // Settings
     setting_map: 'Выбор Карты:',
+    map_minecraft: '🧱 de_minecraft (Мир Майнкрафт - Трава, Камень, Дерево)',
     map_dust2: '🏜️ de_dust2 (Легендарный Даст 2)',
     map_beach: '🏖️ de_beach (Тропический курорт)',
+    mission_mode: 'DE_OPS • 1 VS 5',
     setting_difficulty: 'Сложность Ботов:',
     diff_easy: 'Легко (Easy)',
     diff_normal: 'Средне (Normal)',
@@ -113,6 +115,7 @@ const CS_TRANSLATIONS = {
     buy_no_money: 'Недостаточно денег для покупки!',
 
     // Scoreboard
+    sb_title_minecraft: 'DE_MINECRAFT - СЧЁТ МАТЧА',
     sb_title_beach: 'DE_BEACH - СЧЁТ МАТЧА',
     sb_title_dust2: 'DE_DUST2 - СЧЁТ МАТЧА',
     sb_subtitle: 'Counter-Strike 1.6 Dedicated Engine',
@@ -157,8 +160,10 @@ const CS_TRANSLATIONS = {
 
     // Settings
     setting_map: 'Select Map:',
+    map_minecraft: '🧱 de_minecraft (Minecraft World - Grass, Stone, Wood)',
     map_dust2: '🏜️ de_dust2 (Iconic Dust II)',
     map_beach: '🏖️ de_beach (Tropical Resort)',
+    mission_mode: 'DE_OPS • 1 VS 5',
     setting_difficulty: 'Bot Difficulty:',
     diff_easy: 'Easy (Recruit)',
     diff_normal: 'Normal (Trooper)',
@@ -249,6 +254,7 @@ const CS_TRANSLATIONS = {
     buy_no_money: 'Insufficient funds for this purchase!',
 
     // Scoreboard
+    sb_title_minecraft: 'DE_MINECRAFT - MATCH STATS',
     sb_title_beach: 'DE_BEACH - MATCH STATS',
     sb_title_dust2: 'DE_DUST2 - MATCH STATS',
     sb_subtitle: 'Counter-Strike 1.6 Dedicated Engine',
