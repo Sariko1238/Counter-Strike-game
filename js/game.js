@@ -1026,24 +1026,131 @@ class CSGame {
   }
 
   // 3D Visual Effects: Blood & Bullet Decals
-  createBloodSpurt(pos) {
-    for (let i = 0; i < 12; i++) {
-      const geom = new THREE.SphereGeometry(0.04, 4, 4);
-      const mat = new THREE.MeshBasicMaterial({ color: 0x990000 });
+  createBloodSpurt(pos, isHeadshot = false) {
+    const count = isHeadshot ? 28 : 18;
+    const speed = isHeadshot ? 6.5 : 4.0;
+
+    for (let i = 0; i < count; i++) {
+      // Mix of small drops and larger blobs
+      const size = isHeadshot
+        ? (Math.random() < 0.3 ? 0.07 : 0.03)
+        : (Math.random() < 0.25 ? 0.055 : 0.025);
+      const geom = new THREE.SphereGeometry(size, 4, 4);
+      // Vary blood color: dark red to bright red
+      const shade = Math.random() < 0.5 ? 0x8b0000 : (Math.random() < 0.5 ? 0xaa0000 : 0xcc1111);
+      const mat = new THREE.MeshBasicMaterial({
+        color: shade,
+        transparent: true,
+        opacity: 0.9 + Math.random() * 0.1
+      });
       const p = new THREE.Mesh(geom, mat);
       p.position.copy(pos);
+      const angle = Math.random() * Math.PI * 2;
+      const upward = Math.random() * speed * 0.6 + 0.5;
+      const lateral = Math.random() * speed;
       p.userData = {
         vel: new THREE.Vector3(
-          (Math.random() - 0.5) * 4,
-          Math.random() * 3 + 1,
-          (Math.random() - 0.5) * 4
+          Math.cos(angle) * lateral,
+          upward,
+          Math.sin(angle) * lateral
         ),
-        life: 0.6
+        life: 0.5 + Math.random() * 0.5,
+        initialLife: 1.0,
+        isBlood: true
       };
       this.scene.add(p);
       this.particles.push(p);
     }
+
+    // Blood mist cloud (small, slow-moving particles)
+    const mistCount = isHeadshot ? 10 : 5;
+    for (let i = 0; i < mistCount; i++) {
+      const geom = new THREE.SphereGeometry(0.06 + Math.random() * 0.05, 4, 4);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0x660000,
+        transparent: true,
+        opacity: 0.35
+      });
+      const mist = new THREE.Mesh(geom, mat);
+      mist.position.copy(pos);
+      mist.userData = {
+        vel: new THREE.Vector3(
+          (Math.random() - 0.5) * 1.2,
+          Math.random() * 0.6 + 0.1,
+          (Math.random() - 0.5) * 1.2
+        ),
+        life: 0.8 + Math.random() * 0.4,
+        initialLife: 1.2,
+        isDust: true
+      };
+      this.scene.add(mist);
+      this.particles.push(mist);
+    }
   }
+
+  // Persistent blood pool decal that grows under a dead body
+  createBloodPool(pos) {
+    const groundY = pos.y + 0.02;
+    const maxScale = 0.7 + Math.random() * 0.6; // 0.7 to 1.3 metres radius
+
+    // Main pool disc
+    const poolGeom = new THREE.CircleGeometry(maxScale, 12);
+    const poolMat = new THREE.MeshBasicMaterial({
+      color: 0x660000,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -3
+    });
+    const pool = new THREE.Mesh(poolGeom, poolMat);
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(pos.x + (Math.random() - 0.5) * 0.2, groundY, pos.z + (Math.random() - 0.5) * 0.2);
+
+    // Animate grow-in
+    let elapsed = 0;
+    const growDuration = 3.5;
+    const growInterval = setInterval(() => {
+      elapsed += 0.05;
+      const t = Math.min(1, elapsed / growDuration);
+      poolMat.opacity = t * 0.82;
+      if (t >= 1) clearInterval(growInterval);
+    }, 50);
+
+    this.scene.add(pool);
+
+    // Small satellite splatter spots around the pool
+    const spotCount = 3 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < spotCount; i++) {
+      const r = 0.08 + Math.random() * 0.18;
+      const spotGeom = new THREE.CircleGeometry(r, 7);
+      const spotMat = new THREE.MeshBasicMaterial({
+        color: 0x550000,
+        transparent: true,
+        opacity: 0.7,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -3
+      });
+      const spot = new THREE.Mesh(spotGeom, spotMat);
+      spot.rotation.x = -Math.PI / 2;
+      const ang = Math.random() * Math.PI * 2;
+      const dist = maxScale * (0.5 + Math.random() * 0.8);
+      spot.position.set(
+        pos.x + Math.cos(ang) * dist,
+        groundY,
+        pos.z + Math.sin(ang) * dist
+      );
+      this.scene.add(spot);
+    }
+
+    // Auto-remove pool after 60 seconds
+    setTimeout(() => {
+      this.scene.remove(pool);
+    }, 60000);
+  }
+
+
 
   createBulletDecal(pos, normal) {
     // Authentic CS 1.6 bullet impact decal
