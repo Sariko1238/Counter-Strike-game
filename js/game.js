@@ -107,7 +107,10 @@ class CSGame {
     this.selectedMap = mapName;
     localStorage.setItem('cs_game_map', mapName);
 
-    if (mapName === 'beach') {
+    if (mapName === 'minecraft') {
+      this.scene.fog = new THREE.FogExp2(0x8fc5ff, 0.0035);
+      this.map = new window.CSMinecraftMap(this.scene);
+    } else if (mapName === 'beach') {
       this.scene.fog = new THREE.FogExp2(0xa2d2ff, 0.0032);
       this.map = new window.CSBeachMap(this.scene);
     } else {
@@ -119,9 +122,13 @@ class CSGame {
     // Update scoreboard title
     const sbTitle = document.getElementById('sb-map-title');
     if (sbTitle) {
-      sbTitle.textContent = (mapName === 'beach')
-        ? (window.csI18n ? window.csI18n.t('sb_title_beach') : 'DE_BEACH - MATCH STATS')
-        : (window.csI18n ? window.csI18n.t('sb_title_dust2') : 'DE_DUST2 - MATCH STATS');
+      if (mapName === 'minecraft') {
+        sbTitle.textContent = (window.csI18n ? window.csI18n.t('sb_title_minecraft') : 'DE_MINECRAFT - MATCH STATS');
+      } else if (mapName === 'beach') {
+        sbTitle.textContent = (window.csI18n ? window.csI18n.t('sb_title_beach') : 'DE_BEACH - MATCH STATS');
+      } else {
+        sbTitle.textContent = (window.csI18n ? window.csI18n.t('sb_title_dust2') : 'DE_DUST2 - MATCH STATS');
+      }
     }
 
     if (rebuild) {
@@ -1255,6 +1262,14 @@ class CSGame {
     tracer.userData = { life: 0.08, initialLife: 0.08 };
     this.scene.add(tracer);
     this.tracers.push(tracer);
+
+    // Dynamic 3D Muzzle Flash Light (illuminates walls, props, characters)
+    if (this.scene) {
+      const flash = new THREE.PointLight(0xffea9f, 3.5, 14);
+      flash.position.copy(fromPos);
+      this.scene.add(flash);
+      setTimeout(() => { if (this.scene) this.scene.remove(flash); }, 40);
+    }
   }
 
   // Ocean Water Splash Effect (Droplets + Expanding Ripple Ring)
