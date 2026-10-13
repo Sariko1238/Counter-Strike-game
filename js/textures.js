@@ -1643,6 +1643,494 @@ class CSTextureGenerator {
       side: THREE.BackSide
     });
   }
+
+  // ==========================================
+  // AUTHENTIC MINECRAFT VOXEL BLOCK TEXTURES
+  // ==========================================
+
+  // 1. Minecraft Grass Top (16x16 pixelated lush foliage green)
+  getMinecraftGrassTopTexture() {
+    if (this.cache.mcGrassTop) return this.cache.mcGrassTop;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+    ctx.imageSmoothingEnabled = false;
+
+    const greens = ['#5b8c32', '#4c7828', '#659b38', '#3f6620', '#72ad3d', '#54822d', '#7ebb42'];
+    const p = 8; // 16x16 grid
+
+    for (let r = 0; r < 16; r++) {
+      for (let c = 0; c < 16; c++) {
+        const idx = Math.floor(Math.abs(Math.sin(r * 12.9898 + c * 78.233) * 43758.5453)) % greens.length;
+        ctx.fillStyle = greens[idx];
+        ctx.fillRect(c * p, r * p, p, p);
+      }
+    }
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcGrassTop = tex;
+    return tex;
+  }
+
+  // 2. Minecraft Grass Side (Grass rim on top, jagged overhangs, brown soil below)
+  getMinecraftGrassSideTexture() {
+    if (this.cache.mcGrassSide) return this.cache.mcGrassSide;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+    ctx.imageSmoothingEnabled = false;
+
+    const dirtColors = ['#866043', '#735135', '#573d26', '#966c4b', '#684a30'];
+    const grassColors = ['#5b8c32', '#4c7828', '#659b38', '#72ad3d', '#3f6620'];
+    const p = 8; // 16x16 grid
+
+    // Dirt base
+    for (let r = 0; r < 16; r++) {
+      for (let c = 0; c < 16; c++) {
+        const dIdx = Math.floor(Math.abs(Math.sin(r * 9.1 + c * 15.3) * 31415)) % dirtColors.length;
+        ctx.fillStyle = dirtColors[dIdx];
+        ctx.fillRect(c * p, r * p, p, p);
+      }
+    }
+
+    // Grass overhang on top (columns vary between 2 and 5 pixels depth)
+    const overhangDepths = [3, 4, 3, 2, 4, 5, 3, 2, 4, 3, 5, 4, 2, 3, 4, 3];
+    for (let c = 0; c < 16; c++) {
+      const depth = overhangDepths[c];
+      for (let r = 0; r < depth; r++) {
+        const gIdx = Math.floor(Math.abs(Math.sin(r * 7.7 + c * 11.2) * 27182)) % grassColors.length;
+        ctx.fillStyle = grassColors[gIdx];
+        ctx.fillRect(c * p, r * p, p, p);
+      }
+    }
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcGrassSide = tex;
+    return tex;
+  }
+
+  // 3. Minecraft Dirt (Rich pixelated earthy soil)
+  getMinecraftDirtTexture() {
+    if (this.cache.mcDirt) return this.cache.mcDirt;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+    ctx.imageSmoothingEnabled = false;
+
+    const dirtColors = ['#866043', '#735135', '#573d26', '#966c4b', '#684a30', '#7a5639'];
+    const p = 8;
+
+    for (let r = 0; r < 16; r++) {
+      for (let c = 0; c < 16; c++) {
+        const idx = Math.floor(Math.abs(Math.sin(r * 13.7 + c * 23.1) * 45678)) % dirtColors.length;
+        ctx.fillStyle = dirtColors[idx];
+        ctx.fillRect(c * p, r * p, p, p);
+      }
+    }
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcDirt = tex;
+    return tex;
+  }
+
+  // 4. Minecraft Cobblestone (Classic stone chunks with dark cracks)
+  getMinecraftCobblestoneTexture() {
+    if (this.cache.mcCobblestone) return this.cache.mcCobblestone;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+    ctx.imageSmoothingEnabled = false;
+
+    const stones = ['#7c7c7c', '#626262', '#8e8e8e', '#545454', '#9e9e9e', '#454545', '#383838'];
+    const p = 8;
+
+    for (let r = 0; r < 16; r++) {
+      for (let c = 0; c < 16; c++) {
+        // Pseudo-random stone pattern
+        const noise = Math.abs(Math.sin(r * 5.3 + c * 17.9) * 89765);
+        let idx = Math.floor(noise) % stones.length;
+        // Edge seams
+        if ((r % 4 === 0 && (c % 8 < 4)) || (r % 4 === 2 && (c % 8 >= 4)) || (c % 4 === 0)) {
+          idx = stones.length - 1; // Dark mortar
+        }
+        ctx.fillStyle = stones[idx];
+        ctx.fillRect(c * p, r * p, p, p);
+      }
+    }
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcCobblestone = tex;
+    return tex;
+  }
+
+  // 5. Minecraft Stone Bricks (Carved stone fortress walls)
+  getMinecraftStoneBrickTexture() {
+    if (this.cache.mcStoneBrick) return this.cache.mcStoneBrick;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+    ctx.imageSmoothingEnabled = false;
+
+    const stoneColors = ['#7d7d7d', '#6e6e6e', '#8c8c8c', '#5e5e5e'];
+    const p = 8;
+
+    // 4 rows of bricks (4 pixels tall each)
+    for (let r = 0; r < 16; r++) {
+      const isHorizontalMortar = (r % 4 === 3);
+      for (let c = 0; c < 16; c++) {
+        const brickRow = Math.floor(r / 4);
+        const colOffset = (brickRow % 2 === 0) ? 0 : 4;
+        const isVerticalMortar = ((c + colOffset) % 8 === 7);
+
+        if (isHorizontalMortar || isVerticalMortar) {
+          ctx.fillStyle = '#3c3c3c'; // Dark mortar line
+        } else if (r % 4 === 0 || (c + colOffset) % 8 === 0) {
+          ctx.fillStyle = '#9b9b9b'; // Top-left highlight
+        } else {
+          const idx = Math.floor(Math.abs(Math.sin(r * 3.3 + c * 8.7) * 12345)) % stoneColors.length;
+          ctx.fillStyle = stoneColors[idx];
+        }
+        ctx.fillRect(c * p, r * p, p, p);
+      }
+    }
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcStoneBrick = tex;
+    return tex;
+  }
+
+  // 6. Minecraft Oak Planks (Warm horizontal wood planks)
+  getMinecraftOakPlanksTexture() {
+    if (this.cache.mcOakPlanks) return this.cache.mcOakPlanks;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+    ctx.imageSmoothingEnabled = false;
+
+    const woods = ['#b8945f', '#a88450', '#c29f69', '#9c7743', '#8e6c3a'];
+    const p = 8;
+
+    for (let r = 0; r < 16; r++) {
+      const isPlankDivider = (r % 4 === 3);
+      for (let c = 0; c < 16; c++) {
+        if (isPlankDivider) {
+          ctx.fillStyle = '#5c4323'; // Dark plank groove
+        } else if (r % 4 === 0) {
+          ctx.fillStyle = '#cca975'; // Plank highlight
+        } else {
+          const idx = Math.floor(Math.abs(Math.sin(r * 4.1 + c * 11.7) * 43210)) % woods.length;
+          ctx.fillStyle = woods[idx];
+        }
+        ctx.fillRect(c * p, r * p, p, p);
+      }
+    }
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcOakPlanks = tex;
+    return tex;
+  }
+
+  // 7. Minecraft Oak Log Side (Tree trunk bark)
+  getMinecraftOakLogSideTexture() {
+    if (this.cache.mcOakLogSide) return this.cache.mcOakLogSide;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+    ctx.imageSmoothingEnabled = false;
+
+    const barkShades = ['#6b5335', '#523e26', '#7d613e', '#3d2d1b', '#8a6c47'];
+    const p = 8;
+
+    for (let r = 0; r < 16; r++) {
+      for (let c = 0; c < 16; c++) {
+        // Vertical bark stripes
+        const stripe = Math.sin(c * 1.5) * 2;
+        const noise = Math.abs(Math.sin(r * 9.3 + c * 3.1) * 9876);
+        const idx = Math.floor(Math.abs(stripe + noise)) % barkShades.length;
+        ctx.fillStyle = barkShades[idx];
+        ctx.fillRect(c * p, r * p, p, p);
+      }
+    }
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcOakLogSide = tex;
+    return tex;
+  }
+
+  // 8. Minecraft Oak Log Top (Concentric wood rings)
+  getMinecraftOakLogTopTexture() {
+    if (this.cache.mcOakLogTop) return this.cache.mcOakLogTop;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+    ctx.imageSmoothingEnabled = false;
+
+    const p = 8;
+    for (let r = 0; r < 16; r++) {
+      for (let c = 0; c < 16; c++) {
+        const isBark = (r === 0 || r === 15 || c === 0 || c === 15);
+        if (isBark) {
+          ctx.fillStyle = '#523e26';
+        } else {
+          const dx = r - 7.5;
+          const dy = c - 7.5;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 5.5) ctx.fillStyle = '#6b5335';
+          else if (dist > 3.8) ctx.fillStyle = '#8c6b41';
+          else if (dist > 2.0) ctx.fillStyle = '#a38053';
+          else ctx.fillStyle = '#785b37';
+        }
+        ctx.fillRect(c * p, r * p, p, p);
+      }
+    }
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcOakLogTop = tex;
+    return tex;
+  }
+
+  // 9. Minecraft Leaves (Lush foliage with transparent holes)
+  getMinecraftLeavesTexture() {
+    if (this.cache.mcLeaves) return this.cache.mcLeaves;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+    ctx.imageSmoothingEnabled = false;
+
+    const leafGreens = ['#38761d', '#275413', '#4d9a27', '#1b3e0c', '#5cb330'];
+    const p = 8;
+
+    for (let r = 0; r < 16; r++) {
+      for (let c = 0; c < 16; c++) {
+        const isHole = (Math.abs(Math.sin(r * 11.1 + c * 17.3) * 6543) % 1) > 0.78;
+        if (isHole) {
+          ctx.clearRect(c * p, r * p, p, p);
+        } else {
+          const idx = Math.floor(Math.abs(Math.sin(r * 5.5 + c * 9.9) * 2345)) % leafGreens.length;
+          ctx.fillStyle = leafGreens[idx];
+          ctx.fillRect(c * p, r * p, p, p);
+        }
+      }
+    }
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcLeaves = tex;
+    return tex;
+  }
+
+  // 10. Minecraft TNT Side (Iconic red explosive with white band and TNT text)
+  getMinecraftTNTTexture() {
+    if (this.cache.mcTNT) return this.cache.mcTNT;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+    ctx.imageSmoothingEnabled = false;
+
+    const p = 8;
+    const reds = ['#db3225', '#c4281c', '#eb3f31', '#aa1f15'];
+
+    // Red body
+    for (let r = 0; r < 16; r++) {
+      for (let c = 0; c < 16; c++) {
+        const isBand = (r >= 6 && r <= 9);
+        if (isBand) {
+          ctx.fillStyle = '#f0f0f0';
+        } else {
+          const idx = Math.floor(Math.abs(Math.sin(r * 3.7 + c * 8.3) * 5678)) % reds.length;
+          ctx.fillStyle = reds[idx];
+        }
+        ctx.fillRect(c * p, r * p, p, p);
+      }
+    }
+
+    // Bold pixelated black "TNT" letters in center band
+    ctx.fillStyle = '#111111';
+    ctx.font = 'bold 24px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('TNT', 64, 64);
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcTNT = tex;
+    return tex;
+  }
+
+  // 11. Minecraft Crafting Table Side (Oak wood with workbench tools)
+  getMinecraftCraftingTableTexture() {
+    if (this.cache.mcCraftTable) return this.cache.mcCraftTable;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+    ctx.imageSmoothingEnabled = false;
+
+    // Wood base
+    const woodTex = this.getMinecraftOakPlanksTexture();
+    ctx.drawImage(woodTex.image, 0, 0, 128, 128);
+
+    // Saw & hammer tool silhouettes
+    ctx.fillStyle = '#3a3a3a';
+    // Saw blade
+    ctx.fillRect(20, 36, 40, 10);
+    ctx.fillRect(20, 30, 12, 6);
+    // Hammer
+    ctx.fillRect(76, 32, 28, 14);
+    ctx.fillStyle = '#8c6b41';
+    ctx.fillRect(86, 46, 8, 38);
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcCraftTable = tex;
+    return tex;
+  }
+
+  // 12. Minecraft Diamond Ore Block (Stone with sparkling diamond crystals)
+  getMinecraftDiamondOreTexture() {
+    if (this.cache.mcDiamondOre) return this.cache.mcDiamondOre;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+    ctx.imageSmoothingEnabled = false;
+
+    // Smooth stone base
+    const p = 8;
+    const stones = ['#7c7c7c', '#686868', '#8e8e8e', '#545454'];
+    for (let r = 0; r < 16; r++) {
+      for (let c = 0; c < 16; c++) {
+        const idx = Math.floor(Math.abs(Math.sin(r * 4.9 + c * 11.3) * 9876)) % stones.length;
+        ctx.fillStyle = stones[idx];
+        ctx.fillRect(c * p, r * p, p, p);
+      }
+    }
+
+    // Glowing Diamond Ore flecks
+    const diamonds = [
+      [3, 4], [4, 4], [4, 5],
+      [11, 3], [12, 3], [12, 4],
+      [2, 11], [3, 11], [3, 12],
+      [9, 10], [10, 10], [10, 11], [9, 11]
+    ];
+    for (const [r, c] of diamonds) {
+      ctx.fillStyle = '#2de6c9';
+      ctx.fillRect(c * p, r * p, p, p);
+      ctx.fillStyle = '#99ffee';
+      ctx.fillRect(c * p + 2, r * p + 2, p - 4, p - 4);
+    }
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcDiamondOre = tex;
+    return tex;
+  }
+
+  // 13. Minecraft Gold Ore Block (Stone with rich golden nuggets)
+  getMinecraftGoldOreTexture() {
+    if (this.cache.mcGoldOre) return this.cache.mcGoldOre;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+    ctx.imageSmoothingEnabled = false;
+
+    const p = 8;
+    const stones = ['#7c7c7c', '#686868', '#8e8e8e', '#545454'];
+    for (let r = 0; r < 16; r++) {
+      for (let c = 0; c < 16; c++) {
+        const idx = Math.floor(Math.abs(Math.sin(r * 4.9 + c * 11.3) * 9876)) % stones.length;
+        ctx.fillStyle = stones[idx];
+        ctx.fillRect(c * p, r * p, p, p);
+      }
+    }
+
+    const goldNuggets = [
+      [4, 3], [5, 3], [5, 4],
+      [10, 5], [11, 5], [10, 6],
+      [3, 12], [4, 12],
+      [12, 11], [13, 11], [12, 12]
+    ];
+    for (const [r, c] of goldNuggets) {
+      ctx.fillStyle = '#f5b82e';
+      ctx.fillRect(c * p, r * p, p, p);
+      ctx.fillStyle = '#ffec78';
+      ctx.fillRect(c * p + 2, r * p + 2, p - 4, p - 4);
+    }
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcGoldOre = tex;
+    return tex;
+  }
+
+  // 14. Minecraft Nether Portal Vortex (Mystic pulsing purple obsidian rift)
+  getMinecraftPortalTexture() {
+    if (this.cache.mcPortal) return this.cache.mcPortal;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+
+    const purples = ['#4a148c', '#6a1b9a', '#8e24aa', '#ab47bc', '#ba68c8', '#260e42'];
+    const p = 8;
+    for (let r = 0; r < 16; r++) {
+      for (let c = 0; c < 16; c++) {
+        const idx = Math.floor(Math.abs(Math.sin(r * 2.3 + c * 5.7) * 7890)) % purples.length;
+        ctx.fillStyle = purples[idx];
+        ctx.fillRect(c * p, r * p, p, p);
+      }
+    }
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    this.cache.mcPortal = tex;
+    return tex;
+  }
+
+  // 15. Minecraft Blue Sky with Square Pixel Clouds and Square Sun
+  getMinecraftSkyMaterial() {
+    const { canvas, ctx } = this.createCanvas(1024, 512);
+
+    // Iconic vibrant Minecraft blue sky gradient
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, 512);
+    skyGrad.addColorStop(0, '#4b88e8');
+    skyGrad.addColorStop(0.5, '#73abff');
+    skyGrad.addColorStop(0.85, '#99c4ff');
+    skyGrad.addColorStop(1, '#c5dcff');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, 1024, 512);
+
+    // Minecraft Square Cumulus Clouds
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.82)';
+    const drawPixelCloud = (x, y, w, h) => {
+      ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = 'rgba(235, 242, 255, 0.95)';
+      ctx.fillRect(x + 12, y + 8, w - 24, h - 16);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.82)';
+    };
+
+    drawPixelCloud(60, 120, 220, 60);
+    drawPixelCloud(380, 80, 280, 75);
+    drawPixelCloud(740, 140, 240, 65);
+    drawPixelCloud(180, 220, 180, 50);
+    drawPixelCloud(600, 240, 260, 60);
+
+    // Iconic Square Minecraft Sun!
+    const sunX = 512;
+    const sunY = 90;
+    const sunSize = 70;
+    // Sun outer corona glow
+    const glow = ctx.createRadialGradient(sunX, sunY, sunSize * 0.5, sunX, sunY, sunSize * 2.5);
+    glow.addColorStop(0, 'rgba(255, 255, 220, 0.9)');
+    glow.addColorStop(0.4, 'rgba(255, 240, 160, 0.4)');
+    glow.addColorStop(1, 'rgba(255, 230, 120, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, sunSize * 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Square Sun core
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(sunX - sunSize / 2, sunY - sunSize / 2, sunSize, sunSize);
+    ctx.fillStyle = '#fff9d6';
+    ctx.fillRect(sunX - sunSize / 2 + 4, sunY - sunSize / 2 + 4, sunSize - 8, sunSize - 8);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    return new THREE.MeshBasicMaterial({
+      map: tex,
+      side: THREE.BackSide
+    });
+  }
 }
 
 // Global texture generator instance
