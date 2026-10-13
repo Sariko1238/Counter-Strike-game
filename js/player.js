@@ -874,7 +874,7 @@ class CSPlayer {
 
         bot.takeDamage(dmg, isHeadshot, this, hitZone);
         if (window.csGame && window.csGame.createBloodSpurt) {
-          window.csGame.createBloodSpurt(hit.point);
+          window.csGame.createBloodSpurt(hit.point, isHeadshot);
         }
         return;
       }
@@ -928,7 +928,7 @@ class CSPlayer {
                 window.csGame.showHitmarker(isHeadshot);
               }
               bot.takeDamage(penDmg, isHeadshot, this, penZone);
-              window.csGame.createBloodSpurt(penHit.point);
+              window.csGame.createBloodSpurt(penHit.point, isHeadshot);
               window.csAudio.playMechanicalClick(1.5, 800);
               break;
             }
@@ -995,11 +995,11 @@ class CSPlayer {
     this.updateHUD();
 
     if (this.health <= 0) {
-      this.die(attacker, isHeadshot);
+      this.die(attacker, isHeadshot, hitZone);
     }
   }
 
-  die(attacker, isHeadshot) {
+  die(attacker, isHeadshot, hitZone = 'body') {
     this.isDead = true;
     this.deaths++;
     if (this.isScoped) {

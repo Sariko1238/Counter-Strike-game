@@ -461,11 +461,11 @@ class CSBot {
     }
 
     if (this.health <= 0) {
-      this.die(attacker, isHeadshot);
+      this.die(attacker, isHeadshot, hitZone);
     }
   }
 
-  die(attacker, isHeadshot) {
+  die(attacker, isHeadshot, hitZone = 'body') {
     if (this.isDead) return;
     this.isDead = true;
     this.deaths++;
@@ -1180,7 +1180,7 @@ class CSBot {
         this.currentTarget.takeDamage(dmg, isHeadshot, this, hitZone);
       }
       if (window.csGame && window.csGame.createBloodSpurt) {
-        window.csGame.createBloodSpurt(finalImpactTarget);
+        window.csGame.createBloodSpurt(finalImpactTarget, isHeadshot);
       }
     } else {
       // Bullet Missed: Raycast to wall/environment
