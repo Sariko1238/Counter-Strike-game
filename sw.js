@@ -3,7 +3,7 @@
  * Ensures zero-latency offline gameplay without Live Server or internet access.
  */
 
-const CACHE_NAME = 'cs16-offline-v1';
+const CACHE_NAME = 'cs16-v3-latest';
 
 const CORE_ASSETS = [
   './',
@@ -19,6 +19,7 @@ const CORE_ASSETS = [
   './js/player.js',
   './js/bot.js',
   './js/lobby.js',
+  './js/touch.js',
   './js/game.js'
 ];
 
@@ -110,7 +111,7 @@ self.addEventListener('fetch', (event) => {
       }).catch(() => {
         // Fallback for HTML navigation when offline
         if (req.mode === 'navigate' || req.headers.get('accept')?.includes('text/html')) {
-          return caches.match('./index.html') || caches.match('/');
+          return caches.match('./index.html') || caches.match('./');
         }
       });
     })
