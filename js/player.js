@@ -135,6 +135,8 @@ class CSPlayer {
     this.viewmodelBob = 0;
     this.recoilOffset = new THREE.Vector3();
     this.recoilRot = new THREE.Vector3();
+    this.isInspecting = false;
+    this.inspectTimer = 0;
 
     // Performance: pre-allocated vectors to eliminate garbage collection freezes
     this._vZero3 = new THREE.Vector3(0, 0, 0);
@@ -279,6 +281,11 @@ class CSPlayer {
         this.reload();
       }
 
+      // Inspect Weapon (Key F)
+      if (e.code === 'KeyF') {
+        this.inspectWeapon();
+      }
+
       // Cycle Crosshair / Reticle (Key H)
       if (e.code === 'KeyH') {
         this.cycleReticle();
@@ -364,6 +371,12 @@ class CSPlayer {
     document.addEventListener('pointerlockerror', (e) => {
       console.warn('Pointer lock request error / blocked:', e);
     });
+  }
+
+  inspectWeapon() {
+    if (this.isDead || this.isReloading || !this.currentViewmodelMesh) return;
+    this.isInspecting = true;
+    this.inspectTimer = 0;
   }
 
   cycleReticle() {
@@ -514,6 +527,8 @@ class CSPlayer {
     this.currentWeapon = this.inventory[slot];
     this.isReloading = false;
     this.isAds = false;
+    this.isInspecting = false;
+    this.inspectTimer = 0;
 
     // Reset scope if switching away from scoped weapons
     if (this.isScoped && !this.currentWeapon.hasScope) {
@@ -616,14 +631,17 @@ class CSPlayer {
     const now = performance.now() / 1000;
     if (now - this.lastShotTime < 0.65) return;
     this.lastShotTime = now;
+    this.isInspecting = false;
 
     if (window.csAudio) {
       window.csAudio.playKnifeSlash();
     }
 
-    // Viewmodel stab forward punch
-    this.recoilOffset.z += 0.12;
-    this.recoilRot.x -= 0.18;
+    // Viewmodel stab forward punch & angle
+    this.recoilOffset.z += 0.16;
+    this.recoilOffset.y -= 0.04;
+    this.recoilRot.x -= 0.28;
+    this.recoilRot.y -= 0.16;
 
     // Hitscan with heavy backstab/stab damage
     this.performHitscan(true);
@@ -648,6 +666,7 @@ class CSPlayer {
     const now = performance.now() / 1000;
     if (now - this.lastShotTime < this.currentWeapon.fireRate) return;
     this.lastShotTime = now;
+    this.isInspecting = false;
 
     // Decrement ammo
     if (this.currentWeapon.clipSize > 0) {
@@ -658,6 +677,11 @@ class CSPlayer {
     switch (this.currentWeapon.id) {
       case 'knife':
         window.csAudio.playKnifeSlash();
+        this.recoilOffset.x -= 0.06;
+        this.recoilOffset.z += 0.09;
+        this.recoilRot.y += 0.48;
+        this.recoilRot.z -= 0.36;
+        this.recoilRot.x -= 0.22;
         break;
       case 'ak47':
         window.csAudio.playAK47();
@@ -751,6 +775,7 @@ class CSPlayer {
     if (this.currentWeapon.currentClip >= this.currentWeapon.clipSize) return;
     if (this.currentWeapon.reserve <= 0) return;
 
+    this.isInspecting = false;
     this.isReloading = true;
     this.reloadTimer = this.currentWeapon.reloadTime;
     this.isAds = false; // Drop ADS on reload
@@ -1286,16 +1311,49 @@ class CSPlayer {
         }
       }
 
+      // Tactical inspect animation (Key F)
+      let inspectRotX = 0;
+      let inspectRotY = 0;
+      let inspectRotZ = 0;
+      let inspectOffsetY = 0;
+      let inspectOffsetX = 0;
+      if (this.isInspecting && !this.isReloading && !this.isAds) {
+        this.inspectTimer += delta;
+        const inspectDuration = (this.currentWeapon && this.currentWeapon.id === 'knife') ? 2.4 : 1.9;
+        if (this.inspectTimer >= inspectDuration) {
+          this.isInspecting = false;
+          this.inspectTimer = 0;
+        } else {
+          const p = this.inspectTimer / inspectDuration;
+          const curve = Math.sin(p * Math.PI);
+          if (this.currentWeapon && this.currentWeapon.id === 'knife') {
+            // Smooth inspect twirl & blade showcase
+            inspectRotY = 1.45 * curve;
+            inspectRotZ = 0.65 * curve;
+            inspectRotX = -0.35 * Math.sin(p * Math.PI * 2);
+            inspectOffsetY = -0.02 * curve;
+            inspectOffsetX = -0.03 * curve;
+          } else {
+            // Pistol / rifle inspect tilt
+            inspectRotY = -0.75 * curve;
+            inspectRotZ = 0.55 * curve;
+            inspectRotX = -0.25 * curve;
+            inspectOffsetY = -0.015 * curve;
+            inspectOffsetX = -0.02 * curve;
+          }
+        }
+      }
+
       this.currentViewmodelMesh.position.set(
-        adsOffsetX + this.recoilOffset.x + this.mouseSway.x * swayDamp + breathX,
-        adsOffsetY + reloadOffsetY + this.recoilOffset.y + this.mouseSway.y * swayDamp + breathY,
+        adsOffsetX + inspectOffsetX + this.recoilOffset.x + this.mouseSway.x * swayDamp + breathX,
+        adsOffsetY + reloadOffsetY + inspectOffsetY + this.recoilOffset.y + this.mouseSway.y * swayDamp + breathY,
         adsOffsetZ + this.recoilOffset.z
       );
 
       this.currentViewmodelMesh.rotation.set(
-        reloadRotX + this.recoilRot.x - (this.mouseSway.y * 0.5 * swayDamp),
-        this.recoilRot.y + (this.mouseSway.x * 0.6 * swayDamp),
-        reloadRotZ + this.recoilRot.z - (this.cameraRoll * 0.4) - (this.leanRoll * 0.5)
+        reloadRotX + inspectRotX + this.recoilRot.x - (this.mouseSway.y * 0.5 * swayDamp),
+        inspectRotY + this.recoilRot.y + (this.mouseSway.x * 0.6 * swayDamp),
+        reloadRotZ + inspectRotZ + this.recoilRot.z - (this.cameraRoll * 0.4) - (this.leanRoll * 0.5)
       );
 
       // Weapon bobbing when moving on ground (heavily dampened in ADS)

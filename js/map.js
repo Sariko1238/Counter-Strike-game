@@ -133,12 +133,12 @@ class CSBeachMap {
 
   // 2. Warm Tropical Sunlight & Ocean Reflections
   createLights() {
-    // Ambient light: warm sunlit haze
-    const ambient = new THREE.AmbientLight(0xfff1dc, 0.82);
+    // Ambient light: toned down to eliminate blown-out white walls
+    const ambient = new THREE.AmbientLight(0xfff1dc, 0.45);
     this.scene.add(ambient);
 
     // Warm Sun Directional Light
-    const sun = new THREE.DirectionalLight(0xfffae8, 1.15);
+    const sun = new THREE.DirectionalLight(0xfffae8, 1.10);
     sun.position.set(45, 65, -35);
     sun.castShadow = true;
     sun.shadow.mapSize.width = 2048;
@@ -956,12 +956,12 @@ class CSDust2Map {
 
   // 2. Blazing Desert Sun & Warm Ambient Haze
   createLights() {
-    // Warm desert ambient light
-    const ambient = new THREE.AmbientLight(0xf5e3cc, 0.88);
+    // Toned-down desert ambient light to provide volumetric shadows and eliminate washed-out white walls
+    const ambient = new THREE.AmbientLight(0xd4be9e, 0.46);
     this.mapGroup.add(ambient);
 
     // Warm Sun Directional Light
-    const sun = new THREE.DirectionalLight(0xfff6e5, 1.25);
+    const sun = new THREE.DirectionalLight(0xfffaec, 1.15);
     sun.position.set(45, 75, -25);
     sun.castShadow = true;
     sun.shadow.mapSize.width = 2048;
@@ -976,19 +976,21 @@ class CSDust2Map {
     this.mapGroup.add(sun);
 
     // Sky azure bounce light
-    const skyBounce = new THREE.DirectionalLight(0x90bdec, 0.35);
+    const skyBounce = new THREE.DirectionalLight(0x7da4cc, 0.22);
     skyBounce.position.set(-40, 25, 30);
     this.mapGroup.add(skyBounce);
   }
 
   // 3. Desert Ground Terrain & Perimeter Walls
   createGroundAndBoundaries() {
-    // Sandy dust ground
+    // Sandy dust ground with BumpMap
     const groundGeom = new THREE.PlaneGeometry(120, 150);
     const groundMat = new THREE.MeshStandardMaterial({
       map: window.csTextures.getDustGroundTexture(),
+      bumpMap: window.csTextures.getDustGroundBump(),
+      bumpScale: 0.05,
       roughness: 0.92,
-      metalness: 0.05
+      metalness: 0.04
     });
     const ground = new THREE.Mesh(groundGeom, groundMat);
     ground.rotation.x = -Math.PI / 2;
@@ -1005,8 +1007,10 @@ class CSDust2Map {
 
     const wallMat = new THREE.MeshStandardMaterial({
       map: window.csTextures.getDustWallTexture(),
-      roughness: 0.88,
-      metalness: 0.08
+      bumpMap: window.csTextures.getDustWallBump(),
+      bumpScale: 0.08,
+      roughness: 0.82,
+      metalness: 0.05
     });
 
     // Outer Perimeter Boundary Walls (South, North, West, East)
@@ -1692,10 +1696,19 @@ class CSMinecraftMap {
       side: THREE.DoubleSide
     });
 
-    // 5. TNT
+    // 5. TNT with real TNT Top cap
     const tntSide = tex.getMinecraftTNTTexture();
+    const tntTop = tex.getMinecraftTNTTopTexture();
     const tntSideMat = new THREE.MeshStandardMaterial({ map: tntSide, roughness: 0.7 });
-    this.tntMatArray = [tntSideMat, tntSideMat, dirtMat, dirtMat, tntSideMat, tntSideMat];
+    const tntTopMat = new THREE.MeshStandardMaterial({ map: tntTop, roughness: 0.7 });
+    this.tntMatArray = [tntSideMat, tntSideMat, tntTopMat, dirtMat, tntSideMat, tntSideMat];
+
+    // Chest multi-material
+    const chestSide = tex.getMinecraftChestSideTexture();
+    const chestFront = tex.getMinecraftChestFrontTexture();
+    const cSideMat = new THREE.MeshStandardMaterial({ map: chestSide, roughness: 0.8 });
+    const cFrontMat = new THREE.MeshStandardMaterial({ map: chestFront, roughness: 0.8 });
+    this.chestMatArray = [cSideMat, cSideMat, cSideMat, cSideMat, cFrontMat, cSideMat];
 
     // 6. Crafting Table
     const craftSide = tex.getMinecraftCraftingTableTexture();
@@ -1745,13 +1758,13 @@ class CSMinecraftMap {
 
   // 2. Realistic Three.js Sunlight & Ambient Light
   createLights() {
-    // Rich sky and grass bounce ambient illumination
-    const hemiLight = new THREE.HemisphereLight(0x73abff, 0x4c7828, 0.95);
+    // Rich sky and grass bounce ambient illumination - balanced to avoid white glare
+    const hemiLight = new THREE.HemisphereLight(0x73abff, 0x4c7828, 0.48);
     hemiLight.position.set(0, 50, 0);
     this.scene.add(hemiLight);
 
     // Warm, crisp sunlight with cascading soft shadows
-    const sun = new THREE.DirectionalLight(0xfffaea, 1.25);
+    const sun = new THREE.DirectionalLight(0xfffaea, 1.05);
     sun.position.set(40, 75, -30);
     sun.castShadow = true;
     sun.shadow.mapSize.width = 2048;
@@ -1788,6 +1801,7 @@ class CSMinecraftMap {
     else if (type === 'log') mat = this.logMatArray;
     else if (type === 'leaves') mat = this.leavesMat;
     else if (type === 'tnt') mat = this.tntMatArray;
+    else if (type === 'chest') mat = this.chestMatArray;
     else if (type === 'craft') mat = this.craftMatArray;
     else if (type === 'diamond_ore') mat = this.diamondOreMat;
     else if (type === 'gold_ore') mat = this.goldOreMat;
@@ -2134,18 +2148,42 @@ class CSMinecraftMap {
     }
   }
 
-  // 11. Tactical Props (Stacked TNT, Crafting Tables, Lanterns)
+  // 11. Tactical Props (Stacked TNT, Crafting Tables, Chests, Glowing Torches)
   buildTacticalProps() {
     const props = [
       { x: -14, z: -8, type: 'tnt' },
       { x: 14, z: 2, type: 'tnt' },
-      { x: -6, z: -18, type: 'craft' },
-      { x: 8, z: 12, type: 'craft' },
+      { x: -6, z: -18, type: 'chest' },
+      { x: 8, z: 12, type: 'chest' },
       { x: 0, z: -32, type: 'wood' },
       { x: 0, z: 30, type: 'wood' }
     ];
     for (const p of props) {
       this.addBlock(p.x, 0, p.z, 2, 2, 2, p.type);
+    }
+
+    // Glowing torches on posts
+    const torchPosts = [
+      { x: 0, y: 2, z: 0 },
+      { x: 22, y: 3, z: 26 },
+      { x: -22, y: 2, z: -16 },
+      { x: -6, y: 2, z: -36 },
+      { x: 6, y: 2, z: 36 }
+    ];
+    for (const tp of torchPosts) {
+      const torchGeom = new THREE.BoxGeometry(0.35, 1.0, 0.35);
+      const torchMat = new THREE.MeshStandardMaterial({
+        map: window.csTextures.getMinecraftTorchTexture(),
+        emissive: 0xffaa22,
+        emissiveIntensity: 0.9
+      });
+      const torchMesh = new THREE.Mesh(torchGeom, torchMat);
+      torchMesh.position.set(tp.x, tp.y + 0.5, tp.z);
+      this.scene.add(torchMesh);
+
+      const tLight = new THREE.PointLight(0xff9922, 1.4, 18);
+      tLight.position.set(tp.x, tp.y + 0.9, tp.z);
+      this.scene.add(tLight);
     }
   }
 
@@ -2222,8 +2260,740 @@ class CSMinecraftMap {
   }
 }
 
+// =============================================================================
+// DE_UNIVERSAL: УНИВЕРСАЛЬНАЯ АРЕНА (2-Level Bridge, Towers, Neon Passage, A/B)
+// =============================================================================
+class CSUniversalMap {
+  constructor(scene) {
+    this.scene = scene;
+    this.mapGroup = new THREE.Group();
+    this.colliders = [];
+    this.platforms = [];
+
+    // Bombsite coordinates
+    this.bombsiteA = { x: 18, z: 24, radius: 8.5 }; // Reactor Platform & Upper Deck
+    this.bombsiteB = { x: -18, z: -24, radius: 8.5 }; // Cargo Depot & Underground Vent
+
+    // Spawn points
+    this.spawnPoints = {
+      ct: [
+        { x: 0, y: 0, z: 40 },
+        { x: 4, y: 0, z: 42 },
+        { x: -4, y: 0, z: 40 },
+        { x: 2, y: 0, z: 44 }
+      ],
+      t: [
+        { x: 0, y: 0, z: -40 },
+        { x: 4, y: 0, z: -42 },
+        { x: -4, y: 0, z: -40 },
+        { x: 2, y: 0, z: -44 }
+      ]
+    };
+
+    // Bot tactical navigation waypoints
+    this.waypoints = [
+      { id: 't_spawn', x: 0, z: -40, type: 'spawn_t' },
+      { id: 't_approach_mid', x: 0, z: -24, type: 'path' },
+      { id: 't_approach_b', x: -16, z: -32, type: 'path' },
+      { id: 't_approach_a', x: 16, z: -32, type: 'path' },
+      { id: 'site_b', x: -18, z: -24, type: 'bombsite' },
+      { id: 'tower_west', x: -24, z: 0, type: 'sniper' },
+      { id: 'bridge_lower_t', x: 0, z: -10, type: 'path' },
+      { id: 'bridge_upper', x: 0, z: 0, type: 'ramp' },
+      { id: 'bridge_lower_ct', x: 0, z: 10, type: 'path' },
+      { id: 'neon_tunnel_mid', x: 0, z: 0, type: 'choke' },
+      { id: 'tower_east', x: 24, z: 0, type: 'sniper' },
+      { id: 'site_a', x: 18, z: 24, type: 'bombsite' },
+      { id: 'ct_approach_a', x: 16, z: 32, type: 'path' },
+      { id: 'ct_approach_b', x: -16, z: 32, type: 'path' },
+      { id: 'ct_approach_mid', x: 0, z: 24, type: 'path' },
+      { id: 'ct_spawn', x: 0, z: 40, type: 'spawn_ct' }
+    ];
+
+    this.navConnections = {
+      t_spawn: ['t_approach_mid', 't_approach_b', 't_approach_a'],
+      t_approach_b: ['site_b', 'tower_west'],
+      t_approach_mid: ['bridge_lower_t', 'bridge_upper', 'neon_tunnel_mid'],
+      t_approach_a: ['tower_east', 'bridge_upper'],
+      site_b: ['tower_west', 'bridge_lower_t', 'ct_approach_b'],
+      tower_west: ['site_b', 'bridge_upper', 'ct_approach_b'],
+      bridge_lower_t: ['bridge_lower_ct', 'neon_tunnel_mid'],
+      bridge_upper: ['tower_west', 'tower_east', 'bridge_lower_ct'],
+      bridge_lower_ct: ['ct_approach_mid', 'site_a'],
+      neon_tunnel_mid: ['tower_west', 'tower_east', 'bridge_lower_ct'],
+      tower_east: ['site_a', 'ct_approach_a', 'bridge_upper'],
+      site_a: ['tower_east', 'ct_approach_a', 'bridge_lower_ct'],
+      ct_approach_a: ['ct_spawn', 'site_a'],
+      ct_approach_b: ['ct_spawn', 'site_b'],
+      ct_approach_mid: ['ct_spawn', 'bridge_lower_ct'],
+      ct_spawn: ['ct_approach_a', 'ct_approach_b', 'ct_approach_mid']
+    };
+  }
+
+  destroy() {
+    if (this.mapGroup) {
+      this.mapGroup.traverse(obj => {
+        if (obj.geometry) {
+          try { obj.geometry.dispose(); } catch (e) {}
+        }
+      });
+      this.scene.remove(this.mapGroup);
+    }
+    this.colliders = [];
+    this.platforms = [];
+  }
+
+  buildMap() {
+    this.mapGroup = new THREE.Group();
+    this.scene.add(this.mapGroup);
+
+    this.createLights();
+    this.createGroundAndBoundaries();
+    this.buildTwoLevelBridge();
+    this.buildSniperTowers();
+    this.buildNeonUndergroundPassage();
+    this.buildBombsiteA();
+    this.buildBombsiteB();
+    this.buildVoxelCoverProps();
+  }
+
+  createLights() {
+    // Rich contrast cyber ambient
+    const ambient = new THREE.AmbientLight(0x1a2332, 0.45);
+    this.mapGroup.add(ambient);
+
+    // Moonlight sun keylight
+    const sun = new THREE.DirectionalLight(0xd6e4ff, 1.15);
+    sun.position.set(35, 60, -25);
+    sun.castShadow = true;
+    sun.shadow.mapSize.width = 2048;
+    sun.shadow.mapSize.height = 2048;
+    sun.shadow.bias = -0.0004;
+    this.mapGroup.add(sun);
+
+    // Neon atmospheric fill
+    const fillLight = new THREE.DirectionalLight(0x00e5ff, 0.25);
+    fillLight.position.set(-30, 20, 20);
+    this.mapGroup.add(fillLight);
+  }
+
+  createGroundAndBoundaries() {
+    const tex = window.csTextures;
+    // Ground platform
+    const groundGeom = new THREE.PlaneGeometry(100, 110);
+    const groundMat = new THREE.MeshStandardMaterial({
+      map: tex.getUniversalFloorTexture(),
+      roughness: 0.85,
+      metalness: 0.2
+    });
+    const ground = new THREE.Mesh(groundGeom, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    this.mapGroup.add(ground);
+
+    this.platforms.push({
+      box: new THREE.Box3(new THREE.Vector3(-50, -1, -55), new THREE.Vector3(50, 0, 55)),
+      topY: 0,
+      isRamp: false
+    });
+
+    // Perimeter modular walls
+    const wallMat = new THREE.MeshStandardMaterial({
+      map: tex.getUniversalWallTexture(),
+      bumpMap: tex.getUniversalWallBump(),
+      bumpScale: 0.08,
+      roughness: 0.75,
+      metalness: 0.3
+    });
+
+    const perim = [
+      { x: 0, y: 4, z: -52, w: 96, h: 8, d: 2 },
+      { x: 0, y: 4, z: 52, w: 96, h: 8, d: 2 },
+      { x: -48, y: 4, z: 0, w: 2, h: 8, d: 104 },
+      { x: 48, y: 4, z: 0, w: 2, h: 8, d: 104 }
+    ];
+    perim.forEach(p => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), wallMat);
+      mesh.position.set(p.x, p.y, p.z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.mapGroup.add(mesh);
+      this.colliders.push(new THREE.Box3().setFromObject(mesh));
+    });
+  }
+
+  // 1. Two-Level Central Bridge (Upper steel walkway & lower road pass)
+  buildTwoLevelBridge() {
+    const tex = window.csTextures;
+    const bridgeMat = new THREE.MeshStandardMaterial({
+      map: tex.getUniversalBridgeTexture(),
+      roughness: 0.6,
+      metalness: 0.6
+    });
+    const pillarMat = new THREE.MeshStandardMaterial({
+      map: tex.getIndustrialConcreteTexture(),
+      roughness: 0.85
+    });
+
+    // Bridge deck platform at Y=4.5
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(10, 0.4, 28), bridgeMat);
+    deck.position.set(0, 4.5, 0);
+    deck.castShadow = true;
+    deck.receiveShadow = true;
+    this.mapGroup.add(deck);
+
+    const deckBox = new THREE.Box3().setFromObject(deck);
+    this.colliders.push(deckBox);
+    this.platforms.push({ box: deckBox, topY: 4.7, isRamp: false });
+
+    // Bridge Guardrails
+    const railMat = new THREE.MeshStandardMaterial({
+      map: tex.getHazardStripeTexture(),
+      roughness: 0.4,
+      metalness: 0.4
+    });
+    const railL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.2, 28), railMat);
+    railL.position.set(-5, 5.3, 0);
+    this.mapGroup.add(railL);
+    this.colliders.push(new THREE.Box3().setFromObject(railL));
+
+    const railR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.2, 28), railMat);
+    railR.position.set(5, 5.3, 0);
+    this.mapGroup.add(railR);
+    this.colliders.push(new THREE.Box3().setFromObject(railR));
+
+    // Support pillars (leaves open central passage at Y=0 underneath)
+    const p1 = new THREE.Mesh(new THREE.BoxGeometry(1.4, 4.5, 1.4), pillarMat);
+    p1.position.set(-4, 2.25, -12);
+    this.mapGroup.add(p1);
+    this.colliders.push(new THREE.Box3().setFromObject(p1));
+
+    const p2 = new THREE.Mesh(new THREE.BoxGeometry(1.4, 4.5, 1.4), pillarMat);
+    p2.position.set(4, 2.25, -12);
+    this.mapGroup.add(p2);
+    this.colliders.push(new THREE.Box3().setFromObject(p2));
+
+    const p3 = new THREE.Mesh(new THREE.BoxGeometry(1.4, 4.5, 1.4), pillarMat);
+    p3.position.set(-4, 2.25, 12);
+    this.mapGroup.add(p3);
+    this.colliders.push(new THREE.Box3().setFromObject(p3));
+
+    const p4 = new THREE.Mesh(new THREE.BoxGeometry(1.4, 4.5, 1.4), pillarMat);
+    p4.position.set(4, 2.25, 12);
+    this.mapGroup.add(p4);
+    this.colliders.push(new THREE.Box3().setFromObject(p4));
+
+    // Ramps leading up to the bridge (North & South)
+    const rampGeom = new THREE.BoxGeometry(8, 0.4, 12);
+
+    const rampSouth = new THREE.Mesh(rampGeom, bridgeMat);
+    rampSouth.position.set(0, 2.25, -20);
+    rampSouth.rotation.x = 0.38;
+    this.mapGroup.add(rampSouth);
+    const rsBox = new THREE.Box3().setFromObject(rampSouth);
+    this.colliders.push(rsBox);
+    this.platforms.push({ box: rsBox, topY: 4.5, isRamp: true });
+
+    const rampNorth = new THREE.Mesh(rampGeom, bridgeMat);
+    rampNorth.position.set(0, 2.25, 20);
+    rampNorth.rotation.x = -0.38;
+    this.mapGroup.add(rampNorth);
+    const rnBox = new THREE.Box3().setFromObject(rampNorth);
+    this.colliders.push(rnBox);
+    this.platforms.push({ box: rnBox, topY: 4.5, isRamp: true });
+  }
+
+  // 2. High Sniper Watchtowers (East & West)
+  buildSniperTowers() {
+    const tex = window.csTextures;
+    const towerMat = new THREE.MeshStandardMaterial({
+      map: tex.getIndustrialConcreteTexture(),
+      roughness: 0.8
+    });
+    const platformMat = new THREE.MeshStandardMaterial({
+      map: tex.getUniversalBridgeTexture(),
+      roughness: 0.5,
+      metalness: 0.7
+    });
+
+    const towerLocs = [{ x: -26, z: 0 }, { x: 26, z: 0 }];
+    towerLocs.forEach(t => {
+      // Main tower base
+      const base = new THREE.Mesh(new THREE.BoxGeometry(8, 5.5, 8), towerMat);
+      base.position.set(t.x, 2.75, t.z);
+      this.mapGroup.add(base);
+      const bBox = new THREE.Box3().setFromObject(base);
+      this.colliders.push(bBox);
+      this.platforms.push({ box: bBox, topY: 5.5, isRamp: false });
+
+      // Sniper Parapet
+      const railFront = new THREE.Mesh(new THREE.BoxGeometry(8, 1.2, 0.4), towerMat);
+      railFront.position.set(t.x, 6.1, t.z + (t.x < 0 ? 3.8 : -3.8));
+      this.mapGroup.add(railFront);
+      this.colliders.push(new THREE.Box3().setFromObject(railFront));
+
+      // Access Ramp
+      const ramp = new THREE.Mesh(new THREE.BoxGeometry(3, 0.4, 10), platformMat);
+      ramp.position.set(t.x, 2.75, t.z + (t.x < 0 ? -9 : 9));
+      ramp.rotation.x = (t.x < 0 ? -0.55 : 0.55);
+      this.mapGroup.add(ramp);
+      const rampBox = new THREE.Box3().setFromObject(ramp);
+      this.colliders.push(rampBox);
+      this.platforms.push({ box: rampBox, topY: 5.5, isRamp: true });
+    });
+  }
+
+  // 3. Underground Neon Passage (Sunken tunnel with glowing neon strips)
+  buildNeonUndergroundPassage() {
+    const tex = window.csTextures;
+    const tunnelWallMat = new THREE.MeshStandardMaterial({
+      map: tex.getUniversalWallTexture(),
+      roughness: 0.7
+    });
+
+    // Sunken Corridor Walls
+    const tWallL = new THREE.Mesh(new THREE.BoxGeometry(32, 3.5, 1.2), tunnelWallMat);
+    tWallL.position.set(0, 1.75, -4);
+    this.mapGroup.add(tWallL);
+    this.colliders.push(new THREE.Box3().setFromObject(tWallL));
+
+    const tWallR = new THREE.Mesh(new THREE.BoxGeometry(32, 3.5, 1.2), tunnelWallMat);
+    tWallR.position.set(0, 1.75, 4);
+    this.mapGroup.add(tWallR);
+    this.colliders.push(new THREE.Box3().setFromObject(tWallR));
+
+    // Glowing Cyan & Magenta Neon Strips
+    const neonCyanMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff });
+    const stripCyan = new THREE.Mesh(new THREE.BoxGeometry(30, 0.15, 0.15), neonCyanMat);
+    stripCyan.position.set(0, 3.2, -3.3);
+    this.mapGroup.add(stripCyan);
+
+    const neonMagentaMat = new THREE.MeshBasicMaterial({ color: 0xff007f });
+    const stripMag = new THREE.Mesh(new THREE.BoxGeometry(30, 0.15, 0.15), neonMagentaMat);
+    stripMag.position.set(0, 3.2, 3.3);
+    this.mapGroup.add(stripMag);
+
+    // Dynamic PointLights inside the tunnel
+    const pCyan = new THREE.PointLight(0x00e5ff, 1.8, 14);
+    pCyan.position.set(-8, 2.5, 0);
+    this.mapGroup.add(pCyan);
+
+    const pMag = new THREE.PointLight(0xff007f, 1.8, 14);
+    pMag.position.set(8, 2.5, 0);
+    this.mapGroup.add(pMag);
+  }
+
+  // 4. Bombsite A: Cyber Reactor Platform
+  buildBombsiteA() {
+    const tex = window.csTextures;
+    const siteX = 18;
+    const siteZ = 24;
+
+    // Raised Terrace
+    const terrace = new THREE.Mesh(new THREE.BoxGeometry(16, 1.2, 16), new THREE.MeshStandardMaterial({
+      map: tex.getUniversalFloorTexture(),
+      roughness: 0.7
+    }));
+    terrace.position.set(siteX, 0.6, siteZ);
+    this.mapGroup.add(terrace);
+    const tBox = new THREE.Box3().setFromObject(terrace);
+    this.colliders.push(tBox);
+    this.platforms.push({ box: tBox, topY: 1.2, isRamp: false });
+
+    // Glowing Cyber Core in Center
+    const coreMat = new THREE.MeshStandardMaterial({
+      color: 0x00e5ff,
+      emissive: 0x00c3ff,
+      emissiveIntensity: 0.8,
+      metalness: 0.9,
+      roughness: 0.1
+    });
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 3.2, 16), coreMat);
+    core.position.set(siteX, 2.8, siteZ);
+    this.mapGroup.add(core);
+    this.colliders.push(new THREE.Box3().setFromObject(core));
+
+    const coreLight = new THREE.PointLight(0x00e5ff, 2.2, 16);
+    coreLight.position.set(siteX, 3.5, siteZ);
+    this.mapGroup.add(coreLight);
+
+    // Bombsite A Decal on Ground
+    this.addSiteDecal(siteX, 1.25, siteZ - 4, 'A');
+  }
+
+  // 5. Bombsite B: Freight Shipping Depot
+  buildBombsiteB() {
+    const tex = window.csTextures;
+    const siteX = -18;
+    const siteZ = -24;
+
+    // Red and Blue Shipping Containers
+    const cRedMat = new THREE.MeshStandardMaterial({
+      map: tex.getShippingContainerTexture('#b33939'),
+      roughness: 0.6
+    });
+    const cBlueMat = new THREE.MeshStandardMaterial({
+      map: tex.getShippingContainerTexture('#192a56'),
+      roughness: 0.6
+    });
+
+    const c1 = new THREE.Mesh(new THREE.BoxGeometry(10, 3.5, 4), cRedMat);
+    c1.position.set(siteX - 2, 1.75, siteZ - 3);
+    this.mapGroup.add(c1);
+    const c1Box = new THREE.Box3().setFromObject(c1);
+    this.colliders.push(c1Box);
+    this.platforms.push({ box: c1Box, topY: 3.5, isRamp: false });
+
+    const c2 = new THREE.Mesh(new THREE.BoxGeometry(4, 3.5, 10), cBlueMat);
+    c2.position.set(siteX + 4, 1.75, siteZ + 2);
+    this.mapGroup.add(c2);
+    const c2Box = new THREE.Box3().setFromObject(c2);
+    this.colliders.push(c2Box);
+    this.platforms.push({ box: c2Box, topY: 3.5, isRamp: false });
+
+    // Bombsite B Decal on Ground
+    this.addSiteDecal(siteX, 0.05, siteZ, 'B');
+  }
+
+  // 6. Tactical Voxel Blocks & Barricades
+  buildVoxelCoverProps() {
+    const tex = window.csTextures;
+    const crateMat = new THREE.MeshStandardMaterial({
+      map: tex.getDustCrateTexture(),
+      roughness: 0.75
+    });
+
+    const coverPoints = [
+      { x: -6, z: -16 }, { x: 6, z: -16 },
+      { x: -10, z: 16 }, { x: 10, z: 16 },
+      { x: -12, z: 0 }, { x: 12, z: 0 }
+    ];
+    coverPoints.forEach(cp => {
+      const cr = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.2, 2.2), crateMat);
+      cr.position.set(cp.x, 1.1, cp.z);
+      cr.castShadow = true;
+      this.mapGroup.add(cr);
+      const b = new THREE.Box3().setFromObject(cr);
+      this.colliders.push(b);
+      this.platforms.push({ box: b, topY: 2.2, isRamp: false });
+    });
+  }
+
+  addSiteDecal(x, y, z, letter) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = (letter === 'A') ? '#b71c1c' : '#0d47a1';
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 88px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(letter, 64, 64);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 3.5), new THREE.MeshBasicMaterial({ map: tex }));
+    mesh.position.set(x, y, z);
+    mesh.rotation.x = -Math.PI / 2;
+    this.mapGroup.add(mesh);
+  }
+
+  getGroundHeight(x, z, currentY = 0) {
+    let highestGround = 0;
+    for (let i = 0; i < this.platforms.length; i++) {
+      const plat = this.platforms[i];
+      const box = plat.box;
+      if (x >= box.min.x && x <= box.max.x && z >= box.min.z && z <= box.max.z) {
+        if (plat.isRamp) {
+          const depth = box.max.z - box.min.z;
+          const prog = (z - box.min.z) / depth;
+          const rampY = prog * plat.topY;
+          if (rampY > highestGround) highestGround = rampY;
+        } else {
+          if (currentY >= box.min.y - 0.5 && plat.topY > highestGround) {
+            highestGround = plat.topY;
+          }
+        }
+      }
+    }
+    return highestGround;
+  }
+
+  checkCollision(position, radius = 0.42, feetY = null) {
+    if (!this._collisionSphere) this._collisionSphere = new THREE.Sphere();
+    this._collisionSphere.center.copy(position);
+    this._collisionSphere.radius = radius;
+    for (let i = 0; i < this.colliders.length; i++) {
+      const box = this.colliders[i];
+      if (feetY !== null && box.max.y <= feetY + 0.35) continue;
+      if (box.intersectsSphere(this._collisionSphere)) return true;
+    }
+    return false;
+  }
+
+  getNearestWaypoint(x, z) {
+    let nearest = null;
+    let minDist = Infinity;
+    for (const wp of this.waypoints) {
+      const d = Math.hypot(wp.x - x, wp.z - z);
+      if (d < minDist) {
+        minDist = d;
+        nearest = wp;
+      }
+    }
+    return nearest;
+  }
+
+  update(delta) {}
+}
+
+// =============================================================================
+// DE_INFERNO: Italian Mediterranean Town with Terracotta & Cobblestone
+// =============================================================================
+class CSInfernoMap extends CSDust2Map {
+  constructor(scene) {
+    super(scene);
+    this.bombsiteA = { x: 22, z: 26, radius: 8.5 };
+    this.bombsiteB = { x: -20, z: -18, radius: 8.5 };
+  }
+
+  createLights() {
+    const ambient = new THREE.AmbientLight(0xd18a68, 0.44);
+    this.mapGroup.add(ambient);
+    const sun = new THREE.DirectionalLight(0xffcaa0, 1.15);
+    sun.position.set(40, 65, -30);
+    sun.castShadow = true;
+    this.mapGroup.add(sun);
+  }
+
+  createGroundAndBoundaries() {
+    const tex = window.csTextures;
+    const groundGeom = new THREE.PlaneGeometry(120, 150);
+    const groundMat = new THREE.MeshStandardMaterial({
+      map: tex.getInfernoCobbleTexture(),
+      bumpMap: tex.getInfernoCobbleBump(),
+      bumpScale: 0.08,
+      roughness: 0.85
+    });
+    const ground = new THREE.Mesh(groundGeom, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(0, 0, -2);
+    ground.receiveShadow = true;
+    this.mapGroup.add(ground);
+
+    this.platforms.push({
+      box: new THREE.Box3(new THREE.Vector3(-55, -1, -70), new THREE.Vector3(55, 0, 65)),
+      topY: 0,
+      isRamp: false
+    });
+
+    const wallMat = new THREE.MeshStandardMaterial({
+      map: tex.getInfernoWallTexture(),
+      bumpMap: tex.getInfernoWallBump(),
+      bumpScale: 0.10,
+      roughness: 0.8
+    });
+
+    const boundaries = [
+      { x: 0, y: 3.5, z: -64, w: 110, h: 7, d: 2 },
+      { x: 0, y: 3.5, z: 54, w: 110, h: 7, d: 2 },
+      { x: -42, y: 3.5, z: -5, w: 2, h: 7, d: 120 },
+      { x: 44, y: 3.5, z: -5, w: 2, h: 7, d: 120 }
+    ];
+    boundaries.forEach(b => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), wallMat);
+      mesh.position.set(b.x, b.y, b.z);
+      this.mapGroup.add(mesh);
+      this.colliders.push(new THREE.Box3().setFromObject(mesh));
+    });
+  }
+}
+
+// =============================================================================
+// CS_ASSAULT: Industrial Siege Warehouse (Concrete, Corrugated Metal, Hazard)
+// =============================================================================
+class CSAssaultMap extends CSDust2Map {
+  createLights() {
+    const ambient = new THREE.AmbientLight(0x506272, 0.45);
+    this.mapGroup.add(ambient);
+    const sun = new THREE.DirectionalLight(0xdfe6e9, 1.10);
+    sun.position.set(20, 70, -20);
+    sun.castShadow = true;
+    this.mapGroup.add(sun);
+  }
+
+  createGroundAndBoundaries() {
+    const tex = window.csTextures;
+    const groundGeom = new THREE.PlaneGeometry(120, 150);
+    const groundMat = new THREE.MeshStandardMaterial({
+      map: tex.getIndustrialConcreteTexture(),
+      bumpMap: tex.getIndustrialConcreteBump(),
+      bumpScale: 0.08,
+      roughness: 0.82
+    });
+    const ground = new THREE.Mesh(groundGeom, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    this.mapGroup.add(ground);
+
+    this.platforms.push({
+      box: new THREE.Box3(new THREE.Vector3(-55, -1, -70), new THREE.Vector3(55, 0, 65)),
+      topY: 0,
+      isRamp: false
+    });
+
+    const wallMat = new THREE.MeshStandardMaterial({
+      map: tex.getCorrugatedMetalTexture(),
+      bumpMap: tex.getCorrugatedMetalBump(),
+      bumpScale: 0.12,
+      roughness: 0.55,
+      metalness: 0.45
+    });
+
+    const boundaries = [
+      { x: 0, y: 4, z: -64, w: 110, h: 8, d: 2 },
+      { x: 0, y: 4, z: 54, w: 110, h: 8, d: 2 },
+      { x: -42, y: 4, z: -5, w: 2, h: 8, d: 120 },
+      { x: 44, y: 4, z: -5, w: 2, h: 8, d: 120 }
+    ];
+    boundaries.forEach(b => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), wallMat);
+      mesh.position.set(b.x, b.y, b.z);
+      this.mapGroup.add(mesh);
+      this.colliders.push(new THREE.Box3().setFromObject(mesh));
+    });
+  }
+}
+
+// =============================================================================
+// DE_NUKE: Nuclear Facility with Concrete, Catwalks & Hazard Markings
+// =============================================================================
+class CSNukeMap extends CSAssaultMap {
+  createLights() {
+    const ambient = new THREE.AmbientLight(0x405565, 0.46);
+    this.mapGroup.add(ambient);
+    const sun = new THREE.DirectionalLight(0xe8f0f8, 1.15);
+    sun.position.set(30, 80, -10);
+    sun.castShadow = true;
+    this.mapGroup.add(sun);
+  }
+}
+
+// =============================================================================
+// FY_POOL_DAY: Mosaic Cyan & White Ceramic Tiles, Clean Water
+// =============================================================================
+class CSPoolDayMap extends CSBeachMap {
+  createLights() {
+    const ambient = new THREE.AmbientLight(0x54a0ff, 0.48);
+    this.scene.add(ambient);
+    const sun = new THREE.DirectionalLight(0xffffff, 1.20);
+    sun.position.set(20, 75, -20);
+    sun.castShadow = true;
+    this.scene.add(sun);
+  }
+
+  createGround() {
+    const tex = window.csTextures;
+    // Blue & White Ceramic Tiles
+    const groundGeom = new THREE.PlaneGeometry(120, 150);
+    const groundMat = new THREE.MeshStandardMaterial({
+      map: tex.getPoolTileTexture('white'),
+      bumpMap: tex.getPoolTileBump(),
+      bumpScale: 0.08,
+      roughness: 0.25,
+      metalness: 0.1
+    });
+    const ground = new THREE.Mesh(groundGeom, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    this.scene.add(ground);
+
+    this.platforms.push({
+      box: new THREE.Box3(new THREE.Vector3(-60, -1, -75), new THREE.Vector3(60, 0, 75)),
+      topY: 0,
+      isRamp: false
+    });
+
+    // Central Pool Water
+    const waterGeom = new THREE.PlaneGeometry(24, 36);
+    const waterMat = new THREE.MeshStandardMaterial({
+      map: tex.getPoolWaterTexture(),
+      roughness: 0.1,
+      metalness: 0.1,
+      transparent: true,
+      opacity: 0.75
+    });
+    const water = new THREE.Mesh(waterGeom, waterMat);
+    water.rotation.x = -Math.PI / 2;
+    water.position.set(0, 0.04, 0);
+    this.scene.add(water);
+  }
+}
+
+// =============================================================================
+// AWP_INDIA: Ancient Sandstone Sniper Temple
+// =============================================================================
+class CSAwpIndiaMap extends CSDust2Map {
+  createLights() {
+    const ambient = new THREE.AmbientLight(0xc68c53, 0.45);
+    this.mapGroup.add(ambient);
+    const sun = new THREE.DirectionalLight(0xffeaad, 1.20);
+    sun.position.set(40, 75, -30);
+    sun.castShadow = true;
+    this.mapGroup.add(sun);
+  }
+
+  createGroundAndBoundaries() {
+    const tex = window.csTextures;
+    const groundGeom = new THREE.PlaneGeometry(120, 150);
+    const groundMat = new THREE.MeshStandardMaterial({
+      map: tex.getAwpIndiaStoneTexture(),
+      bumpMap: tex.getDustGroundBump(),
+      bumpScale: 0.08,
+      roughness: 0.85
+    });
+    const ground = new THREE.Mesh(groundGeom, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    this.mapGroup.add(ground);
+
+    this.platforms.push({
+      box: new THREE.Box3(new THREE.Vector3(-55, -1, -70), new THREE.Vector3(55, 0, 65)),
+      topY: 0,
+      isRamp: false
+    });
+
+    const wallMat = new THREE.MeshStandardMaterial({
+      map: tex.getAwpIndiaStoneTexture(),
+      bumpMap: tex.getDustWallBump(),
+      bumpScale: 0.10,
+      roughness: 0.82
+    });
+
+    const boundaries = [
+      { x: 0, y: 4, z: -64, w: 110, h: 8, d: 2 },
+      { x: 0, y: 4, z: 54, w: 110, h: 8, d: 2 },
+      { x: -42, y: 4, z: -5, w: 2, h: 8, d: 120 },
+      { x: 44, y: 4, z: -5, w: 2, h: 8, d: 120 }
+    ];
+    boundaries.forEach(b => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), wallMat);
+      mesh.position.set(b.x, b.y, b.z);
+      this.mapGroup.add(mesh);
+      this.colliders.push(new THREE.Box3().setFromObject(mesh));
+    });
+  }
+}
+
 // Global exposure
 window.CSBeachMap = CSBeachMap;
 window.CSDust2Map = CSDust2Map;
 window.CSMinecraftMap = CSMinecraftMap;
+window.CSInfernoMap = CSInfernoMap;
+window.CSAssaultMap = CSAssaultMap;
+window.CSNukeMap = CSNukeMap;
+window.CSPoolDayMap = CSPoolDayMap;
+window.CSAwpIndiaMap = CSAwpIndiaMap;
+window.CSUniversalMap = CSUniversalMap;
 

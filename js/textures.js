@@ -1415,47 +1415,56 @@ class CSTextureGenerator {
   }
 
   // Dust II Middle-Eastern Sandstone Wall & Brick Architecture
+  // Dust II Middle-Eastern Sandstone Wall & Brick Architecture (Rich Warm Tones with Mortar Grooves)
   getDustWallTexture() {
     if (this.cache.dustWall) return this.cache.dustWall;
     const { canvas, ctx } = this.createCanvas(512, 512);
 
-    // Warm sandstone base
-    ctx.fillStyle = '#e2c59b';
+    // Warm saturated sandstone gradient base (prevents blown-out flat white)
+    const baseGrad = ctx.createLinearGradient(0, 0, 512, 512);
+    baseGrad.addColorStop(0, '#cda87a');
+    baseGrad.addColorStop(0.5, '#be9869');
+    baseGrad.addColorStop(1, '#ad8759');
+    ctx.fillStyle = baseGrad;
     ctx.fillRect(0, 0, 512, 512);
 
     // Sandstone block brick courses
     const rows = 8;
     const rowH = 512 / rows;
-    ctx.lineWidth = 3;
 
     for (let r = 0; r <= rows; r++) {
       const y = r * rowH;
-      // Mortar groove shadow & highlight
-      ctx.strokeStyle = '#a68052';
+      // Deep mortar groove
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#5a4025';
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(512, y);
       ctx.stroke();
 
-      ctx.strokeStyle = '#f5e2c5';
+      // Lower bevel highlight
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#dfc39a';
       ctx.beginPath();
-      ctx.moveTo(0, y + 2);
-      ctx.lineTo(512, y + 2);
+      ctx.moveTo(0, y + 3);
+      ctx.lineTo(512, y + 3);
       ctx.stroke();
 
-      // Vertical block seams
+      // Vertical block seams with staggered brick offset
       const cols = 4;
       const colW = 512 / cols;
       const offset = (r % 2) * (colW / 2);
       for (let c = -1; c <= cols + 1; c++) {
         const x = c * colW + offset;
-        ctx.strokeStyle = '#a68052';
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = '#5a4025';
         ctx.beginPath();
         ctx.moveTo(x, y);
         ctx.lineTo(x, y + rowH);
         ctx.stroke();
 
-        ctx.strokeStyle = '#f5e2c5';
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#dfc39a';
         ctx.beginPath();
         ctx.moveTo(x + 2, y);
         ctx.lineTo(x + 2, y + rowH);
@@ -1463,19 +1472,86 @@ class CSTextureGenerator {
       }
     }
 
-    // Weathering stains & dusty plaster gradients
+    // Weathering stains, desert dust & eroded plaster patches
     const imgData = ctx.getImageData(0, 0, 512, 512);
     const d = imgData.data;
     for (let i = 0; i < d.length; i += 4) {
-      const n = (Math.random() - 0.5) * 28;
+      const n = (Math.random() - 0.5) * 32;
       d[i] = Math.min(255, Math.max(0, d[i] + n));
-      d[i + 1] = Math.min(255, Math.max(0, d[i + 1] + n * 0.95));
-      d[i + 2] = Math.min(255, Math.max(0, d[i + 2] + n * 0.8));
+      d[i + 1] = Math.min(255, Math.max(0, d[i + 1] + n * 0.92));
+      d[i + 2] = Math.min(255, Math.max(0, d[i + 2] + n * 0.72));
     }
     ctx.putImageData(imgData, 0, 0);
 
     const tex = this.canvasToTexture(canvas, 4, 3);
     this.cache.dustWall = tex;
+    return tex;
+  }
+
+  // Dust II Sandstone Wall Normal / BumpMap
+  getDustWallBump() {
+    if (this.cache.dustWallBump) return this.cache.dustWallBump;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+
+    // Mid-gray brick face baseline
+    ctx.fillStyle = '#9e9e9e';
+    ctx.fillRect(0, 0, 512, 512);
+
+    const rows = 8;
+    const rowH = 512 / rows;
+    for (let r = 0; r <= rows; r++) {
+      const y = r * rowH;
+      // Mortar recess is dark
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = '#181818';
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(512, y);
+      ctx.stroke();
+
+      // Top edge highlight is light
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(0, y + 2.5);
+      ctx.lineTo(512, y + 2.5);
+      ctx.stroke();
+
+      const cols = 4;
+      const colW = 512 / cols;
+      const offset = (r % 2) * (colW / 2);
+      for (let c = -1; c <= cols + 1; c++) {
+        const x = c * colW + offset;
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#181818';
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y + rowH);
+        ctx.stroke();
+
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.moveTo(x + 2, y);
+        ctx.lineTo(x + 2, y + rowH);
+        ctx.stroke();
+      }
+    }
+
+    // Heavy grain bump noise
+    const imgData = ctx.getImageData(0, 0, 512, 512);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const n = (Math.random() - 0.5) * 45;
+      const val = Math.min(255, Math.max(0, d[i] + n));
+      d[i] = val;
+      d[i + 1] = val;
+      d[i + 2] = val;
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const tex = this.canvasToTexture(canvas, 4, 3);
+    this.cache.dustWallBump = tex;
     return tex;
   }
 
@@ -2141,6 +2217,637 @@ class CSTextureGenerator {
       map: tex,
       side: THREE.BackSide
     });
+  }
+
+  // =========================================================================
+  // ADVANCED PROCEDURAL TEXTURES & BUMPMAPS FOR ALL MAPS
+  // =========================================================================
+
+  // Dust II Ground Bump
+  getDustGroundBump() {
+    if (this.cache.dustGroundBump) return this.cache.dustGroundBump;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, 512, 512);
+
+    const imgData = ctx.getImageData(0, 0, 512, 512);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const n = (Math.random() - 0.5) * 35;
+      const v = Math.min(255, Math.max(0, 128 + n));
+      d[i] = v; d[i+1] = v; d[i+2] = v;
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const tex = this.canvasToTexture(canvas, 12, 12);
+    this.cache.dustGroundBump = tex;
+    return tex;
+  }
+
+  // Dust II Stone Arch Texture & Bump
+  getDustStoneArchTexture() {
+    if (this.cache.dustArch) return this.cache.dustArch;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#c8a478';
+    ctx.fillRect(0, 0, 512, 512);
+
+    for (let i = 0; i < 512; i += 64) {
+      ctx.strokeStyle = '#5c4126';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(i, 0, 64, 512);
+    }
+    const tex = this.canvasToTexture(canvas, 2, 2);
+    this.cache.dustArch = tex;
+    return tex;
+  }
+
+  getDustStoneArchBump() {
+    if (this.cache.dustArchBump) return this.cache.dustArchBump;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#888888';
+    ctx.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 512; i += 64) {
+      ctx.strokeStyle = '#101010';
+      ctx.lineWidth = 5;
+      ctx.strokeRect(i, 0, 64, 512);
+    }
+    const tex = this.canvasToTexture(canvas, 2, 2);
+    this.cache.dustArchBump = tex;
+    return tex;
+  }
+
+  // Dust II Heavy Cedar Wood Gates with Iron Reinforcement
+  getDustWoodGateTexture() {
+    if (this.cache.dustWoodGate) return this.cache.dustWoodGate;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#654321';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Wood planks
+    for (let x = 0; x < 512; x += 64) {
+      ctx.strokeStyle = '#3b2512';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(x, 0, 64, 512);
+    }
+
+    // Heavy iron strap hinges
+    ctx.fillStyle = '#2f3542';
+    ctx.fillRect(0, 80, 512, 40);
+    ctx.fillRect(0, 390, 512, 40);
+
+    // Iron rivets
+    ctx.fillStyle = '#747d8c';
+    for (let x = 32; x < 512; x += 64) {
+      ctx.beginPath();
+      ctx.arc(x, 100, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x, 410, 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    this.cache.dustWoodGate = tex;
+    return tex;
+  }
+
+  getDustWoodGateBump() {
+    if (this.cache.dustWoodGateBump) return this.cache.dustWoodGateBump;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#777777';
+    ctx.fillRect(0, 0, 512, 512);
+    ctx.fillStyle = '#cccccc';
+    ctx.fillRect(0, 80, 512, 40);
+    ctx.fillRect(0, 390, 512, 40);
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    this.cache.dustWoodGateBump = tex;
+    return tex;
+  }
+
+  // =========================================================================
+  // DE_INFERNO: Terracotta Plaster, Mediterranean Roof Tiles, Cobblestone
+  // =========================================================================
+  getInfernoWallTexture() {
+    if (this.cache.infernoWall) return this.cache.infernoWall;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    // Warm Tuscan terracotta stucco
+    ctx.fillStyle = '#d3835a';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Exposed brickwork patch in center/corner
+    ctx.fillStyle = '#8f3d24';
+    ctx.fillRect(120, 200, 220, 160);
+    for (let y = 200; y <= 360; y += 26) {
+      ctx.strokeStyle = '#cda188';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(120, y); ctx.lineTo(340, y); ctx.stroke();
+    }
+    for (let r = 0; r < 6; r++) {
+      const y = 200 + r * 26;
+      const off = (r % 2) * 28;
+      for (let x = 120 + off; x <= 340; x += 56) {
+        ctx.strokeStyle = '#cda188';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 26); ctx.stroke();
+      }
+    }
+
+    // Weathered plaster noise
+    const imgData = ctx.getImageData(0, 0, 512, 512);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const n = (Math.random() - 0.5) * 28;
+      d[i] = Math.min(255, Math.max(0, d[i] + n));
+      d[i+1] = Math.min(255, Math.max(0, d[i+1] + n * 0.8));
+      d[i+2] = Math.min(255, Math.max(0, d[i+2] + n * 0.7));
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const tex = this.canvasToTexture(canvas, 3, 3);
+    this.cache.infernoWall = tex;
+    return tex;
+  }
+
+  getInfernoWallBump() {
+    if (this.cache.infernoWallBump) return this.cache.infernoWallBump;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#999999';
+    ctx.fillRect(0, 0, 512, 512);
+    ctx.fillStyle = '#666666';
+    ctx.fillRect(120, 200, 220, 160);
+    const tex = this.canvasToTexture(canvas, 3, 3);
+    this.cache.infernoWallBump = tex;
+    return tex;
+  }
+
+  getInfernoCobbleTexture() {
+    if (this.cache.infernoCobble) return this.cache.infernoCobble;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#2d2d2d'; // Dark mortar
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Rounded cobblestones
+    const stoneCols = ['#6d6b67', '#565451', '#787672', '#484744', '#84827d'];
+    const sH = 32;
+    for (let y = 0; y < 512; y += sH) {
+      const row = Math.floor(y / sH);
+      const off = (row % 2) * 24;
+      for (let x = -20 + off; x < 540; x += 48) {
+        ctx.fillStyle = stoneCols[(row + Math.floor(x / 48)) % stoneCols.length];
+        ctx.beginPath();
+        ctx.roundRect(x + 3, y + 3, 42, 26, 8);
+        ctx.fill();
+      }
+    }
+    const tex = this.canvasToTexture(canvas, 8, 8);
+    this.cache.infernoCobble = tex;
+    return tex;
+  }
+
+  getInfernoCobbleBump() {
+    if (this.cache.infernoCobbleBump) return this.cache.infernoCobbleBump;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#111111';
+    ctx.fillRect(0, 0, 512, 512);
+    const sH = 32;
+    for (let y = 0; y < 512; y += sH) {
+      const row = Math.floor(y / sH);
+      const off = (row % 2) * 24;
+      for (let x = -20 + off; x < 540; x += 48) {
+        ctx.fillStyle = '#dddddd';
+        ctx.beginPath();
+        ctx.roundRect(x + 4, y + 4, 40, 24, 7);
+        ctx.fill();
+      }
+    }
+    const tex = this.canvasToTexture(canvas, 8, 8);
+    this.cache.infernoCobbleBump = tex;
+    return tex;
+  }
+
+  getInfernoRoofTileTexture() {
+    if (this.cache.infernoRoof) return this.cache.infernoRoof;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#a8422b';
+    ctx.fillRect(0, 0, 512, 512);
+    for (let y = 0; y < 512; y += 32) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.fillRect(0, y, 512, 6);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.fillRect(0, y + 6, 512, 4);
+    }
+    const tex = this.canvasToTexture(canvas, 4, 4);
+    this.cache.infernoRoof = tex;
+    return tex;
+  }
+
+  // =========================================================================
+  // CS_ASSAULT & DE_NUKE: Industrial Concrete, Corrugated Metal & Hazard Stripes
+  // =========================================================================
+  getIndustrialConcreteTexture() {
+    if (this.cache.indConcrete) return this.cache.indConcrete;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#59626a';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Concrete formwork seams
+    ctx.strokeStyle = '#3e444a';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(0, 0, 512, 256);
+    ctx.strokeRect(0, 256, 512, 256);
+
+    // Tie-rod anchor holes
+    ctx.fillStyle = '#2c3035';
+    const holes = [[40, 40], [472, 40], [40, 216], [472, 216], [40, 296], [472, 296], [40, 472], [472, 472]];
+    holes.forEach(([hx, hy]) => {
+      ctx.beginPath(); ctx.arc(hx, hy, 8, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // Noise
+    const imgData = ctx.getImageData(0, 0, 512, 512);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const n = (Math.random() - 0.5) * 36;
+      d[i] = Math.min(255, Math.max(0, d[i] + n));
+      d[i+1] = Math.min(255, Math.max(0, d[i+1] + n));
+      d[i+2] = Math.min(255, Math.max(0, d[i+2] + n));
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const tex = this.canvasToTexture(canvas, 3, 3);
+    this.cache.indConcrete = tex;
+    return tex;
+  }
+
+  getIndustrialConcreteBump() {
+    if (this.cache.indConcreteBump) return this.cache.indConcreteBump;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, 512, 512);
+    ctx.strokeStyle = '#202020';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(0, 0, 512, 256);
+    ctx.strokeRect(0, 256, 512, 256);
+    const tex = this.canvasToTexture(canvas, 3, 3);
+    this.cache.indConcreteBump = tex;
+    return tex;
+  }
+
+  getCorrugatedMetalTexture() {
+    if (this.cache.corrugatedMetal) return this.cache.corrugatedMetal;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#78828c';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Vertical corrugation waves
+    const ribW = 32;
+    for (let x = 0; x < 512; x += ribW) {
+      const grad = ctx.createLinearGradient(x, 0, x + ribW, 0);
+      grad.addColorStop(0, '#505860');
+      grad.addColorStop(0.5, '#a4b0bc');
+      grad.addColorStop(1, '#3a4047');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x, 0, ribW, 512);
+    }
+    const tex = this.canvasToTexture(canvas, 2, 2);
+    this.cache.corrugatedMetal = tex;
+    return tex;
+  }
+
+  getCorrugatedMetalBump() {
+    if (this.cache.corrugatedMetalBump) return this.cache.corrugatedMetalBump;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    const ribW = 32;
+    for (let x = 0; x < 512; x += ribW) {
+      const grad = ctx.createLinearGradient(x, 0, x + ribW, 0);
+      grad.addColorStop(0, '#111111');
+      grad.addColorStop(0.5, '#ffffff');
+      grad.addColorStop(1, '#111111');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x, 0, ribW, 512);
+    }
+    const tex = this.canvasToTexture(canvas, 2, 2);
+    this.cache.corrugatedMetalBump = tex;
+    return tex;
+  }
+
+  getHazardStripeTexture() {
+    if (this.cache.hazardStripe) return this.cache.hazardStripe;
+    const { canvas, ctx } = this.createCanvas(512, 128);
+    ctx.fillStyle = '#f1c40f'; // Vivid caution yellow
+    ctx.fillRect(0, 0, 512, 128);
+
+    // 45-degree diagonal black stripes
+    ctx.fillStyle = '#1c1e21';
+    const stripeW = 48;
+    ctx.beginPath();
+    for (let x = -150; x < 650; x += stripeW * 2) {
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x + stripeW, 0);
+      ctx.lineTo(x + stripeW + 128, 128);
+      ctx.lineTo(x + 128, 128);
+      ctx.closePath();
+    }
+    ctx.fill();
+
+    const tex = this.canvasToTexture(canvas, 4, 1);
+    this.cache.hazardStripe = tex;
+    return tex;
+  }
+
+  getShippingContainerTexture(color = '#b33939') {
+    const key = 'container_' + color;
+    if (this.cache[key]) return this.cache[key];
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Container corrugations
+    for (let x = 0; x < 512; x += 32) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+      ctx.fillRect(x, 0, 14, 512);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+      ctx.fillRect(x + 14, 0, 4, 512);
+    }
+
+    // Heavy perimeter frame
+    ctx.lineWidth = 16;
+    ctx.strokeStyle = '#1e272e';
+    ctx.strokeRect(8, 8, 496, 496);
+
+    // Decal stencil
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.font = 'bold 26px monospace';
+    ctx.fillText('CS-CARGO 40FT', 32, 60);
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    this.cache[key] = tex;
+    return tex;
+  }
+
+  // =========================================================================
+  // FY_POOL_DAY: Mosaic Cyan & White Ceramic Tiles with Grout Grid
+  // =========================================================================
+  getPoolTileTexture(color = 'blue') {
+    const key = 'pool_tile_' + color;
+    if (this.cache[key]) return this.cache[key];
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#222f3e'; // Grout line color
+    ctx.fillRect(0, 0, 512, 512);
+
+    const tileW = 32;
+    const pad = 3;
+    const baseCol = (color === 'white') ? '#f5f6fa' : '#00a8ff';
+    const shadeCol = (color === 'white') ? '#dcdde1' : '#0097e6';
+
+    for (let y = 0; y < 512; y += tileW) {
+      for (let x = 0; x < 512; x += tileW) {
+        ctx.fillStyle = ((x + y) / tileW % 2 === 0) ? baseCol : shadeCol;
+        ctx.fillRect(x + pad, y + pad, tileW - pad * 2, tileW - pad * 2);
+
+        // Tile bevel reflection highlight
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.fillRect(x + pad, y + pad, tileW - pad * 2, 4);
+        ctx.fillRect(x + pad, y + pad, 4, tileW - pad * 2);
+      }
+    }
+
+    const tex = this.canvasToTexture(canvas, 6, 6);
+    this.cache[key] = tex;
+    return tex;
+  }
+
+  getPoolTileBump() {
+    if (this.cache.poolTileBump) return this.cache.poolTileBump;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#111111'; // Recessed grout
+    ctx.fillRect(0, 0, 512, 512);
+
+    const tileW = 32;
+    const pad = 3;
+    for (let y = 0; y < 512; y += tileW) {
+      for (let x = 0; x < 512; x += tileW) {
+        ctx.fillStyle = '#eeeeee'; // Raised tile face
+        ctx.fillRect(x + pad, y + pad, tileW - pad * 2, tileW - pad * 2);
+      }
+    }
+    const tex = this.canvasToTexture(canvas, 6, 6);
+    this.cache.poolTileBump = tex;
+    return tex;
+  }
+
+  getPoolWaterTexture() {
+    if (this.cache.poolWater) return this.cache.poolWater;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#00d2d3';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Sun caustic wave patterns
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.lineWidth = 4;
+    for (let i = 0; i < 40; i++) {
+      ctx.beginPath();
+      const x = Math.random() * 512;
+      const y = Math.random() * 512;
+      ctx.ellipse(x, y, 40 + Math.random() * 50, 25 + Math.random() * 30, Math.random() * Math.PI, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    const tex = this.canvasToTexture(canvas, 3, 3);
+    this.cache.poolWater = tex;
+    return tex;
+  }
+
+  // =========================================================================
+  // AWP_INDIA: Ancient Ornate Sandstone Blocks
+  // =========================================================================
+  getAwpIndiaStoneTexture() {
+    if (this.cache.awpStone) return this.cache.awpStone;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#b77943';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Carved masonry block grooves
+    for (let y = 0; y < 512; y += 64) {
+      ctx.strokeStyle = '#4e2f14';
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(512, y); ctx.stroke();
+    }
+    for (let x = 0; x < 512; x += 128) {
+      ctx.strokeStyle = '#4e2f14';
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 512); ctx.stroke();
+    }
+    const tex = this.canvasToTexture(canvas, 3, 3);
+    this.cache.awpStone = tex;
+    return tex;
+  }
+
+  // =========================================================================
+  // DE_UNIVERSAL: High-Tech Cyber Arena (Brushed Carbon, Steel Bridge, Neon)
+  // =========================================================================
+  getUniversalWallTexture() {
+    if (this.cache.univWall) return this.cache.univWall;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#222831';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Modular armor plates
+    ctx.strokeStyle = '#393e46';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(12, 12, 488, 488);
+    ctx.strokeRect(20, 20, 472, 472);
+
+    // Cyan glowing LED trim line
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.85)';
+    ctx.fillRect(20, 252, 472, 8);
+
+    const tex = this.canvasToTexture(canvas, 2, 2);
+    this.cache.univWall = tex;
+    return tex;
+  }
+
+  getUniversalWallBump() {
+    if (this.cache.univWallBump) return this.cache.univWallBump;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#777777';
+    ctx.fillRect(0, 0, 512, 512);
+    ctx.strokeStyle = '#222222';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(12, 12, 488, 488);
+    const tex = this.canvasToTexture(canvas, 2, 2);
+    this.cache.univWallBump = tex;
+    return tex;
+  }
+
+  getUniversalFloorTexture() {
+    if (this.cache.univFloor) return this.cache.univFloor;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#1e272e';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Non-slip diamond plate pattern
+    ctx.strokeStyle = '#485460';
+    ctx.lineWidth = 2;
+    for (let y = 0; y < 512; y += 32) {
+      for (let x = 0; x < 512; x += 32) {
+        ctx.strokeRect(x + 4, y + 4, 24, 24);
+      }
+    }
+    const tex = this.canvasToTexture(canvas, 10, 10);
+    this.cache.univFloor = tex;
+    return tex;
+  }
+
+  getUniversalBridgeTexture() {
+    if (this.cache.univBridge) return this.cache.univBridge;
+    const { canvas, ctx } = this.createCanvas(512, 512);
+    ctx.fillStyle = '#2f3542';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Steel mesh grating
+    ctx.strokeStyle = '#747d8c';
+    ctx.lineWidth = 3;
+    for (let i = 0; i <= 512; i += 32) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
+    }
+    const tex = this.canvasToTexture(canvas, 4, 4);
+    this.cache.univBridge = tex;
+    return tex;
+  }
+
+  // =========================================================================
+  // DE_MINECRAFT: Crisp 16x16 Pixel Art (Chests, Torches, TNT)
+  // =========================================================================
+  getMinecraftChestFrontTexture() {
+    if (this.cache.mcChestFront) return this.cache.mcChestFront;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+    ctx.imageSmoothingEnabled = false;
+
+    // Oak wood chest planks
+    ctx.fillStyle = '#9b6b3e';
+    ctx.fillRect(0, 0, 128, 128);
+    // Darker outline
+    ctx.fillStyle = '#5c391b';
+    ctx.fillRect(0, 0, 128, 8);
+    ctx.fillRect(0, 120, 128, 8);
+    ctx.fillRect(0, 0, 8, 128);
+    ctx.fillRect(120, 0, 8, 128);
+    ctx.fillRect(0, 48, 128, 8); // Lid seam
+
+    // Iron latch in center
+    ctx.fillStyle = '#3a3a3a';
+    ctx.fillRect(52, 40, 24, 32);
+    ctx.fillStyle = '#dcdde1';
+    ctx.fillRect(56, 44, 16, 24);
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcChestFront = tex;
+    return tex;
+  }
+
+  getMinecraftChestSideTexture() {
+    if (this.cache.mcChestSide) return this.cache.mcChestSide;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = '#9b6b3e';
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.fillStyle = '#5c391b';
+    ctx.fillRect(0, 0, 128, 8);
+    ctx.fillRect(0, 120, 128, 8);
+    ctx.fillRect(0, 0, 8, 128);
+    ctx.fillRect(120, 0, 8, 128);
+    ctx.fillRect(0, 48, 128, 8); // Lid seam
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcChestSide = tex;
+    return tex;
+  }
+
+  getMinecraftTorchTexture() {
+    if (this.cache.mcTorch) return this.cache.mcTorch;
+    const { canvas, ctx } = this.createCanvas(64, 64);
+    ctx.imageSmoothingEnabled = false;
+
+    // Wood stick
+    ctx.fillStyle = '#7a5639';
+    ctx.fillRect(24, 20, 16, 44);
+    // Glowing ember flame tip
+    ctx.fillStyle = '#ff9f1a';
+    ctx.fillRect(20, 4, 24, 18);
+    ctx.fillStyle = '#fff200';
+    ctx.fillRect(26, 8, 12, 10);
+
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcTorch = tex;
+    return tex;
+  }
+
+  getMinecraftTNTTopTexture() {
+    if (this.cache.mcTNTTop) return this.cache.mcTNTTop;
+    const { canvas, ctx } = this.createCanvas(128, 128);
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = '#b71c1c';
+    ctx.fillRect(0, 0, 128, 128);
+    // Dynamite stick caps
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        ctx.fillStyle = '#d32f2f';
+        ctx.fillRect(c * 32 + 4, r * 32 + 4, 24, 24);
+        ctx.fillStyle = '#f5f5f5'; // White fuse center
+        ctx.fillRect(c * 32 + 12, r * 32 + 12, 8, 8);
+      }
+    }
+    const tex = this.canvasToTexture(canvas, 1, 1);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    this.cache.mcTNTTop = tex;
+    return tex;
   }
 }
 

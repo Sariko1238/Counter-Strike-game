@@ -276,9 +276,40 @@ class CSWeaponViewmodelBuilder {
         roughness: 0.6
       }),
       knifeBlade: new THREE.MeshStandardMaterial({
-        color: 0xdcdde1,
-        metalness: 0.95,
+        color: 0xd8dee9,
+        metalness: 0.90,
         roughness: 0.15
+      }),
+      knifeChromeBlade: new THREE.MeshStandardMaterial({
+        color: 0xd8dee9,
+        metalness: 0.90,
+        roughness: 0.15
+      }),
+      knifeHandleRibbed: new THREE.MeshStandardMaterial({
+        color: 0x1f2328,
+        metalness: 0.25,
+        roughness: 0.80
+      }),
+      knifeGuard: new THREE.MeshStandardMaterial({
+        color: 0x3d434c,
+        metalness: 0.80,
+        roughness: 0.30
+      }),
+      pistolSlide: new THREE.MeshStandardMaterial({
+        color: 0x8a95a5,
+        metalness: 0.85,
+        roughness: 0.25
+      }),
+      pistolGrip: new THREE.MeshStandardMaterial({
+        color: 0x2b3038,
+        metalness: 0.20,
+        roughness: 0.70
+      }),
+      tritiumSight: new THREE.MeshStandardMaterial({
+        color: 0x22ff44,
+        emissive: 0x22ff44,
+        emissiveIntensity: 1.0,
+        roughness: 0.2
       }),
       c4Plastic: new THREE.MeshStandardMaterial({
         color: 0x8a7f5d,
@@ -417,6 +448,13 @@ class CSWeaponViewmodelBuilder {
     root.add(weaponMesh);
     root.weaponMesh = weaponMesh;
 
+    // Viewmodel dedicated local illumination so weapons are NEVER pitch black in shadows!
+    const vmHemi = new THREE.HemisphereLight(0xffffff, 0x444b58, 0.75);
+    root.add(vmHemi);
+    const vmPoint = new THREE.PointLight(0xffffff, 0.65, 3.5);
+    vmPoint.position.set(0.25, 0.25, 0.05);
+    root.add(vmPoint);
+
     // Add muzzle flash point
     const flashGeom = new THREE.SphereGeometry(0.04, 6, 6);
     const flashMat = new THREE.MeshBasicMaterial({ color: 0xffea78, transparent: true, opacity: 0 });
@@ -442,58 +480,166 @@ class CSWeaponViewmodelBuilder {
 
     switch (weaponId) {
       case 'knife': {
-        // Handle
-        const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.02, 0.14, 8), mats.gloves);
+        // Detailed tactical combat knife (M9 Bayonet / Karambit)
+        const bladeMat = (skins.knife === 'doppler') ? mats.doppler : mats.knifeChromeBlade;
+
+        // Ergonomic ribbed handle
+        const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.019, 0.14, 12), mats.knifeHandleRibbed);
         handle.rotation.x = Math.PI / 2;
         group.add(handle);
 
-        // Guard
-        const guard = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.07, 0.015), mats.gunMetal);
+        // Tactile handle grip rings
+        for (let rz = -0.05; rz <= 0.05; rz += 0.02) {
+          const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.006, 12), mats.gunMetal);
+          ring.rotation.x = Math.PI / 2;
+          ring.position.z = rz;
+          group.add(ring);
+        }
+
+        // Steel pommel at base
+        const pommel = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.019, 0.018, 12), mats.knifeGuard);
+        pommel.rotation.x = Math.PI / 2;
+        pommel.position.z = 0.075;
+        group.add(pommel);
+
+        // Steel crossguard with barrel ring
+        const guard = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.075, 0.018), mats.knifeGuard);
         guard.position.z = -0.07;
         group.add(guard);
 
-        // Blade (curved combat style - Doppler Phase 2 Pink Galaxy Skin)
-        const bladeMat = (skins.knife === 'doppler') ? mats.doppler : mats.knifeBlade;
-        const bladeGeom = new THREE.BoxGeometry(0.008, 0.045, 0.18);
-        const blade = new THREE.Mesh(bladeGeom, bladeMat);
-        blade.position.z = -0.16;
+        // Main chrome blade
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.046, 0.19), bladeMat);
+        blade.position.set(0, 0.005, -0.17);
         group.add(blade);
+
+        // Honed cutting edge bevel
+        const bevel = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.014, 0.18), mats.knifeChromeBlade);
+        bevel.position.set(0, -0.022, -0.165);
+        group.add(bevel);
+
+        // Blood groove (fuller) along blade
+        const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.0082, 0.006, 0.12), mats.gunMetal);
+        fuller.position.set(0, 0.005, -0.16);
+        group.add(fuller);
+
+        // Sawback serrations along spine
+        for (let sz = -0.10; sz >= -0.22; sz -= 0.018) {
+          const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.0075, 0.008, 0.008), bladeMat);
+          tooth.position.set(0, 0.030, sz);
+          tooth.rotation.x = 0.4;
+          group.add(tooth);
+        }
         break;
       }
 
       case 'glock':
       case 'usp': {
-        // Receiver & Grip
-        const grip = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.12, 0.05), mats.gunMetal);
-        grip.rotation.x = 0.25;
+        const isUSP = (weaponId === 'usp');
+        // 1. Tactical Graphite Frame & Ergonomic Grip
+        const grip = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.12, 0.052), mats.pistolGrip);
+        grip.rotation.x = 0.24;
         group.add(grip);
 
-        // Slide
-        const slide = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.042, 0.18), mats.gunSteel);
-        slide.position.set(0, 0.06, -0.04);
+        // Trigger guard
+        const guard = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.038, 0.045), mats.pistolGrip);
+        guard.position.set(0, 0.018, -0.05);
+        group.add(guard);
+
+        // Metallic trigger
+        const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.020, 0.012), mats.gunSteel);
+        trigger.position.set(0, 0.018, -0.045);
+        trigger.rotation.x = 0.2;
+        group.add(trigger);
+
+        // Magazine baseplate
+        const magBase = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.014, 0.056), mats.pistolGrip);
+        magBase.position.set(0, -0.065, 0.02);
+        group.add(magBase);
+
+        // 2. Silver-Blued Steel Slide
+        const slide = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.040, 0.19), mats.pistolSlide);
+        slide.position.set(0, 0.062, -0.04);
         group.add(slide);
 
-        // Barrel
-        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.06, 8), mats.gunMetal);
-        barrel.rotation.x = Math.PI / 2;
-        barrel.position.set(0, 0.058, -0.14);
-        group.add(barrel);
+        // Cocking serrations at rear of slide
+        for (let rz = 0.02; rz <= 0.045; rz += 0.008) {
+          const rib = new THREE.Mesh(new THREE.BoxGeometry(0.0345, 0.028, 0.003), mats.gunMetal);
+          rib.position.set(0, 0.062, rz);
+          group.add(rib);
+        }
+
+        // Ejection port cutout
+        const ejectPort = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.015, 0.036), mats.gunMetal);
+        ejectPort.position.set(0.012, 0.072, -0.03);
+        group.add(ejectPort);
+
+        // 3. Glowing Tritium Green Sights
+        // Front sight post
+        const frontSight = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.008, 0.008), mats.pistolSlide);
+        frontSight.position.set(0, 0.086, -0.125);
+        group.add(frontSight);
+
+        const frontDot = new THREE.Mesh(new THREE.SphereGeometry(0.0028, 6, 6), mats.tritiumSight);
+        frontDot.position.set(0, 0.086, -0.121);
+        group.add(frontDot);
+
+        // Rear sight notch dots (left & right)
+        const rearDotL = new THREE.Mesh(new THREE.SphereGeometry(0.0024, 6, 6), mats.tritiumSight);
+        rearDotL.position.set(-0.009, 0.086, 0.045);
+        group.add(rearDotL);
+
+        const rearDotR = new THREE.Mesh(new THREE.SphereGeometry(0.0024, 6, 6), mats.tritiumSight);
+        rearDotR.position.set(0.009, 0.086, 0.045);
+        group.add(rearDotR);
+
+        // 4. Barrel and Suppressor
+        if (isUSP) {
+          const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.04, 10), mats.gunSteel);
+          barrel.rotation.x = Math.PI / 2;
+          barrel.position.set(0, 0.058, -0.145);
+          group.add(barrel);
+
+          // Detachable tactical silencer
+          const silencer = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.17, 14), mats.pistolGrip);
+          silencer.rotation.x = Math.PI / 2;
+          silencer.position.set(0, 0.058, -0.24);
+          group.add(silencer);
+          group.silencerMesh = silencer;
+        } else {
+          const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.010, 0.05, 10), mats.gunSteel);
+          barrel.rotation.x = Math.PI / 2;
+          barrel.position.set(0, 0.058, -0.14);
+          group.add(barrel);
+        }
         break;
       }
 
       case 'deagle': {
         // Chunky Hand Cannon - Desert Eagle | Printstream Skin
-        const slideMat = (skins.deagle === 'printstream') ? mats.printstream : mats.gunSteel;
+        const slideMat = (skins.deagle === 'printstream') ? mats.printstream : mats.pistolSlide;
 
-        const grip = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.14, 0.065), mats.gunMetal);
+        const grip = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.14, 0.065), mats.pistolGrip);
         grip.rotation.x = 0.28;
         group.add(grip);
+
+        const guard = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.04, 0.05), mats.pistolGrip);
+        guard.position.set(0, 0.02, -0.055);
+        group.add(guard);
+
+        const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.022, 0.014), mats.gunSteel);
+        trigger.position.set(0, 0.02, -0.05);
+        group.add(trigger);
 
         const slide = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.055, 0.26), slideMat);
         slide.position.set(0, 0.07, -0.06);
         group.add(slide);
 
-        const hammer = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.02, 0.02), mats.gunMetal);
+        // Tritium front dot
+        const fDot = new THREE.Mesh(new THREE.SphereGeometry(0.003, 6, 6), mats.tritiumSight);
+        fDot.position.set(0, 0.102, -0.185);
+        group.add(fDot);
+
+        const hammer = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.02, 0.02), mats.gunSteel);
         hammer.position.set(0, 0.08, 0.075);
         group.add(hammer);
         break;

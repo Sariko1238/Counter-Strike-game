@@ -164,20 +164,23 @@ class CSGame {
       this.scene.fog = new THREE.FogExp2(0xa2d2ff, 0.0032);
       this.map = new window.CSBeachMap(this.scene);
     } else if (mapName === 'pool_day') {
-      this.scene.fog = new THREE.FogExp2(0x6ec0e6, 0.0035);
-      this.map = new window.CSBeachMap(this.scene);
+      this.scene.fog = new THREE.FogExp2(0x54a0ff, 0.0028);
+      this.map = new window.CSPoolDayMap(this.scene);
     } else if (mapName === 'inferno') {
-      this.scene.fog = new THREE.FogExp2(0x19182b, 0.0048);
-      this.map = new window.CSDust2Map(this.scene);
+      this.scene.fog = new THREE.FogExp2(0x2d1f1a, 0.0035);
+      this.map = new window.CSInfernoMap(this.scene);
     } else if (mapName === 'assault') {
-      this.scene.fog = new THREE.FogExp2(0x28323e, 0.0042);
-      this.map = new window.CSDust2Map(this.scene);
+      this.scene.fog = new THREE.FogExp2(0x1a2129, 0.0035);
+      this.map = new window.CSAssaultMap(this.scene);
     } else if (mapName === 'nuke') {
-      this.scene.fog = new THREE.FogExp2(0x6b7c8e, 0.0040);
-      this.map = new window.CSDust2Map(this.scene);
+      this.scene.fog = new THREE.FogExp2(0x283038, 0.0032);
+      this.map = new window.CSNukeMap(this.scene);
     } else if (mapName === 'awp_india') {
-      this.scene.fog = new THREE.FogExp2(0xd6af72, 0.0042);
-      this.map = new window.CSDust2Map(this.scene);
+      this.scene.fog = new THREE.FogExp2(0xc89e65, 0.0035);
+      this.map = new window.CSAwpIndiaMap(this.scene);
+    } else if (mapName === 'universal') {
+      this.scene.fog = new THREE.FogExp2(0x151b24, 0.0035);
+      this.map = new window.CSUniversalMap(this.scene);
     } else {
       this.scene.fog = new THREE.FogExp2(0xd8bf97, 0.0040);
       this.map = new window.CSDust2Map(this.scene);
@@ -195,6 +198,7 @@ class CSGame {
         assault: 'CS_ASSAULT - HOSTAGE RESCUE',
         nuke: 'DE_NUKE - MATCH STATS',
         awp_india: 'AWP_INDIA - SNIPER DUEL',
+        universal: 'DE_UNIVERSAL - MATCH STATS',
         dust2: 'DE_DUST2 - MATCH STATS'
       };
       sbTitle.textContent = titles[mapName] || 'DE_DUST2 - MATCH STATS';
@@ -924,6 +928,11 @@ class CSGame {
         if (window.csAudio && window.csAudio.playMechanicalClick) {
           window.csAudio.playMechanicalClick(1.65, 920);
         }
+
+        // When paused (after ESC) or match is in progress, immediately reload and start the selected map!
+        if (this.isPaused || this.isGameStarted) {
+          this.restartMatch(this.selectedMap);
+        }
       });
     });
   }
@@ -1545,6 +1554,22 @@ class CSGame {
       this.requestPointerLock();
     }
     if (window.csTouch) {
+      window.csTouch.updateVisibility();
+    }
+  }
+
+  restartMatch(mapName = null) {
+    if (mapName) {
+      this.selectedMap = mapName;
+    }
+    this.isPaused = false;
+    this.showMenuOverlay(false);
+    this.loadMap(this.selectedMap, true);
+    this.startNewMatch();
+    if (!this.isTouchDevice()) {
+      this.requestPointerLock();
+    }
+    if (window.csTouch && window.csTouch.updateVisibility) {
       window.csTouch.updateVisibility();
     }
   }
