@@ -90,6 +90,11 @@ class CSBeachMap {
 
   destroy() {
     if (this.mapGroup) {
+      this.mapGroup.traverse(obj => {
+        if (obj.geometry) {
+          try { obj.geometry.dispose(); } catch (e) {}
+        }
+      });
       this.scene.remove(this.mapGroup);
     }
     this.colliders = [];
@@ -761,14 +766,17 @@ class CSBeachMap {
 
   // Collision detection helper (ignores platform tops below feet to prevent jitter)
   checkCollision(position, radius = 0.42, feetY = null) {
-    const playerSphere = new THREE.Sphere(position, radius);
+    // Reuse a cached sphere instead of allocating a new one each call
+    if (!this._collisionSphere) this._collisionSphere = new THREE.Sphere();
+    this._collisionSphere.center.copy(position);
+    this._collisionSphere.radius = radius;
     for (let i = 0; i < this.colliders.length; i++) {
       const box = this.colliders[i];
       // If feet level is known, skip colliders whose top is below or near feet height
       if (feetY !== null && box.max.y <= feetY + 0.35) {
         continue;
       }
-      if (box.intersectsSphere(playerSphere)) {
+      if (box.intersectsSphere(this._collisionSphere)) {
         return true;
       }
     }
@@ -909,6 +917,11 @@ class CSDust2Map {
 
   destroy() {
     if (this.mapGroup) {
+      this.mapGroup.traverse(obj => {
+        if (obj.geometry) {
+          try { obj.geometry.dispose(); } catch (e) {}
+        }
+      });
       this.scene.remove(this.mapGroup);
     }
     this.colliders = [];
@@ -1470,13 +1483,15 @@ class CSDust2Map {
 
   // Collision detection helper (ignores platform tops below feet to prevent jitter)
   checkCollision(position, radius = 0.42, feetY = null) {
-    const playerSphere = new THREE.Sphere(position, radius);
+    if (!this._collisionSphere) this._collisionSphere = new THREE.Sphere();
+    this._collisionSphere.center.copy(position);
+    this._collisionSphere.radius = radius;
     for (let i = 0; i < this.colliders.length; i++) {
       const box = this.colliders[i];
       if (feetY !== null && box.max.y <= feetY + 0.35) {
         continue;
       }
-      if (box.intersectsSphere(playerSphere)) {
+      if (box.intersectsSphere(this._collisionSphere)) {
         return true;
       }
     }
@@ -1594,6 +1609,11 @@ class CSMinecraftMap {
 
   destroy() {
     if (this.mapGroup) {
+      this.mapGroup.traverse(obj => {
+        if (obj.geometry) {
+          try { obj.geometry.dispose(); } catch (e) {}
+        }
+      });
       this.scene.remove(this.mapGroup);
     }
     this.colliders = [];
@@ -2161,14 +2181,16 @@ class CSMinecraftMap {
 
   // Collision detection helper
   checkCollision(position, radius = 0.42, feetY = null) {
-    const sphere = new THREE.Sphere(position, radius);
+    if (!this._collisionSphere) this._collisionSphere = new THREE.Sphere();
+    this._collisionSphere.center.copy(position);
+    this._collisionSphere.radius = radius;
     for (let i = 0; i < this.colliders.length; i++) {
       const box = this.colliders[i];
       // Skip platforms that are below character feet
       if (feetY !== null && box.max.y <= feetY + 0.35) {
         continue;
       }
-      if (box.intersectsSphere(sphere)) {
+      if (box.intersectsSphere(this._collisionSphere)) {
         return true;
       }
     }

@@ -136,6 +136,18 @@ class CSPlayer {
     this.recoilOffset = new THREE.Vector3();
     this.recoilRot = new THREE.Vector3();
 
+    // Performance: pre-allocated vectors to eliminate garbage collection freezes
+    this._vZero3 = new THREE.Vector3(0, 0, 0);
+    this._vZero2 = new THREE.Vector2(0, 0);
+    this._vMoveDir = new THREE.Vector3();
+    this._vForward = new THREE.Vector3();
+    this._vRight = new THREE.Vector3();
+    this._vWishDir = new THREE.Vector3();
+    this._vNextPos = new THREE.Vector3();
+    this._vTestPos = new THREE.Vector3();
+    this._lastSpread = -1;
+    this._domCrosshair = null;
+
     // Aim Down Sights (ADS) & Custom Crosshairs
     this.isAds = false;
     this.adsProgress = 0; // 0 (hipfire) to 1 (full ADS)
@@ -180,8 +192,41 @@ class CSPlayer {
     this.plantingProgress = 0;
     this.targetPlantTime = 3.2;
 
+    // --- PERFORMANCE: cached raycaster & map mesh list ---
+    this._raycaster = new THREE.Raycaster();
+    this._mapMeshesCache = null;   // built lazily, cleared on map change
+    this._mapMeshGeneration = -1;
+
     this.initControls();
     this.applyReticleClass();
+  }
+
+  /**
+   * Call this whenever the map is replaced so the mesh cache is rebuilt next shot.
+   */
+  invalidateMapMeshCache() {
+    this._mapMeshesCache = null;
+  }
+
+  _getMapMeshes(botTargets) {
+    // Rebuild only if cache is stale
+    if (this._mapMeshesCache) return this._mapMeshesCache;
+    const meshes = [];
+    const botSet = new Set(botTargets);
+    this.scene.traverse((obj) => {
+      if (!obj.isMesh || obj === this.currentViewmodelMesh) return;
+      if (botSet.has(obj)) return;
+      // Walk up to check bot ancestry
+      let curr = obj;
+      let isBotObj = false;
+      while (curr) {
+        if (curr.userData && curr.userData.bot) { isBotObj = true; break; }
+        curr = curr.parent;
+      }
+      if (!isBotObj) meshes.push(obj);
+    });
+    this._mapMeshesCache = meshes;
+    return meshes;
   }
 
   initControls() {
@@ -715,7 +760,7 @@ class CSPlayer {
   }
 
   performHitscan(isHeavyKnife = false) {
-    const raycaster = new THREE.Raycaster();
+    const raycaster = this._raycaster;
 
     let screenX = 0;
     let screenY = 0;
@@ -798,26 +843,8 @@ class CSPlayer {
     }
     const intersects = raycaster.intersectObjects(botTargets, true);
 
-    // Hit against walls / map geometry (strictly exclude all bot meshes)
-    const mapMeshes = [];
-    this.scene.traverse((obj) => {
-      if (obj.isMesh && obj !== this.currentViewmodelMesh) {
-        let isBotObj = botTargets.includes(obj);
-        if (!isBotObj) {
-          let curr = obj;
-          while (curr) {
-            if (curr.userData && curr.userData.bot) {
-              isBotObj = true;
-              break;
-            }
-            curr = curr.parent;
-          }
-        }
-        if (!isBotObj) {
-          mapMeshes.push(obj);
-        }
-      }
-    });
+    // Hit against walls / map geometry — use CACHED mesh list (no scene.traverse per shot)
+    const mapMeshes = this._getMapMeshes(botTargets);
 
     const wallIntersects = raycaster.intersectObjects(mapMeshes);
     const wallHitDist = wallIntersects.length > 0 ? wallIntersects[0].distance : Infinity;
@@ -1206,16 +1233,16 @@ class CSPlayer {
     this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, delta * 14);
     this.camera.updateProjectionMatrix();
 
-    // Toggle ADS reticle class on crosshair
-    const crosshairEl = document.getElementById('crosshair');
-    if (crosshairEl) {
-      crosshairEl.classList.toggle('ads-active', this.isAds && !this.isScoped);
+    // Toggle ADS reticle class on crosshair (cached DOM element)
+    if (!this._domCrosshair) this._domCrosshair = document.getElementById('crosshair');
+    if (this._domCrosshair) {
+      this._domCrosshair.classList.toggle('ads-active', this.isAds && !this.isScoped);
     }
 
-    // Smooth Recoil & Viewmodel Sway recovery
-    this.recoilOffset.lerp(new THREE.Vector3(0, 0, 0), delta * 12);
-    this.recoilRot.lerp(new THREE.Vector3(0, 0, 0), delta * 14);
-    this.mouseSway.lerp(new THREE.Vector2(0, 0), delta * 8);
+    // Smooth Recoil & Viewmodel Sway recovery (zero-allocation)
+    this.recoilOffset.lerp(this._vZero3, delta * 12);
+    this.recoilRot.lerp(this._vZero3, delta * 14);
+    this.mouseSway.lerp(this._vZero2, delta * 8);
 
     if (this.currentViewmodelMesh) {
       // Idle breathing subtle sway (dampened during ADS)
@@ -1386,8 +1413,8 @@ class CSPlayer {
       currentSpeed *= 0.52; // Instant 48% speed reduction
     }
 
-    // Input direction vectors
-    const moveDir = new THREE.Vector3();
+    // Input direction vectors (zero-allocation)
+    const moveDir = this._vMoveDir.set(0, 0, 0);
     if (this.keys['KeyW']) moveDir.z -= 1;
     if (this.keys['KeyS']) moveDir.z += 1;
     if (this.keys['KeyA']) moveDir.x -= 1;
@@ -1395,9 +1422,9 @@ class CSPlayer {
     moveDir.normalize();
 
     // Transform by camera yaw
-    const forward = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-    const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
-    const wishDir = new THREE.Vector3()
+    const forward = this._vForward.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+    const right = this._vRight.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
+    const wishDir = this._vWishDir.set(0, 0, 0)
       .addScaledVector(forward, -moveDir.z)
       .addScaledVector(right, moveDir.x);
 
@@ -1478,8 +1505,8 @@ class CSPlayer {
     // Save previous vertical speed for impact detection
     this.prevVelocityY = this.velocity.y;
 
-    // Collision Resolution with Map
-    const nextPos = this.position.clone().addScaledVector(this.velocity, delta);
+    // Collision Resolution with Map (zero-allocation)
+    const nextPos = this._vNextPos.copy(this.position).addScaledVector(this.velocity, delta);
 
     // Query exact physical ground height from the map (platforms, ramps, sand)
     const targetGroundY = (this.map && this.map.getGroundHeight)
@@ -1516,16 +1543,16 @@ class CSPlayer {
       }
     }
 
-    // Sliding wall collision resolution
-    const testX = new THREE.Vector3(nextPos.x, nextPos.y + 0.5, this.position.z);
-    if (!this.map.checkCollision(testX, 0.40, this.position.y)) {
+    // Sliding wall collision resolution (zero-allocation)
+    const testPos = this._vTestPos.set(nextPos.x, nextPos.y + 0.5, this.position.z);
+    if (!this.map.checkCollision(testPos, 0.40, this.position.y)) {
       this.position.x = nextPos.x;
     } else {
       this.velocity.x = 0;
     }
 
-    const testZ = new THREE.Vector3(this.position.x, nextPos.y + 0.5, nextPos.z);
-    if (!this.map.checkCollision(testZ, 0.40, this.position.y)) {
+    testPos.set(this.position.x, nextPos.y + 0.5, nextPos.z);
+    if (!this.map.checkCollision(testPos, 0.40, this.position.y)) {
       this.position.z = nextPos.z;
     } else {
       this.velocity.z = 0;
@@ -1567,16 +1594,26 @@ class CSPlayer {
 
     if (this.adsProgress > 0.5) spread = 1; // Pinpoint reticle during ADS
 
-    document.documentElement.style.setProperty('--ch-spread', `${spread}px`);
+    // Only update CSS variable if changed to avoid expensive whole-document style recalculation on every frame
+    const roundedSpread = Math.round(spread);
+    if (this._lastSpread !== roundedSpread) {
+      this._lastSpread = roundedSpread;
+      document.documentElement.style.setProperty('--ch-spread', `${roundedSpread}px`);
+    }
   }
 
   checkInteraction(delta) {
     const isEKeyDown = !!this.keys['KeyE'];
-    const actionBar = document.getElementById('action-bar-container');
-    const actionLabel = document.getElementById('action-bar-label');
-    const actionFill = document.getElementById('action-bar-fill');
-    const promptContainer = document.getElementById('interaction-prompt');
-    const promptText = document.getElementById('interaction-prompt-text');
+    if (!this._ui) {
+      this._ui = {
+        actionBar: document.getElementById('action-bar-container'),
+        actionLabel: document.getElementById('action-bar-label'),
+        actionFill: document.getElementById('action-bar-fill'),
+        promptContainer: document.getElementById('interaction-prompt'),
+        promptText: document.getElementById('interaction-prompt-text')
+      };
+    }
+    const { actionBar, actionLabel, actionFill, promptContainer, promptText } = this._ui;
 
     let showPrompt = false;
 

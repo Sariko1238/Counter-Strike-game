@@ -21,6 +21,14 @@ class CSAudioEngine {
       this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
       this.masterGain.connect(this.ctx.destination);
       this.initialized = true;
+
+      // Pre-generate a 2-second high-density noise buffer once to eliminate GC thrash during gunfights
+      const noiseSamples = Math.floor(this.ctx.sampleRate * 2.0);
+      this.sharedNoiseBuffer = this.ctx.createBuffer(1, noiseSamples, this.ctx.sampleRate);
+      const noiseData = this.sharedNoiseBuffer.getChannelData(0);
+      for (let i = 0; i < noiseSamples; i++) {
+        noiseData[i] = Math.random() * 2 - 1;
+      }
     } catch (e) {
       console.warn('Web Audio API not supported', e);
     }
@@ -39,21 +47,24 @@ class CSAudioEngine {
     }
   }
 
-  // Play a noise burst with envelope and filter
+  // Play a noise burst with envelope and filter (Zero-allocation high performance)
   playNoiseBurst(duration, filterType, filterFreq, gainVal, decaySpeed = 15) {
     if (!this.initialized) this.init();
     if (!this.ctx) return;
     this.resume();
 
-    const bufferSize = this.ctx.sampleRate * duration;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1;
+    if (!this.sharedNoiseBuffer) {
+      const noiseSamples = Math.floor(this.ctx.sampleRate * 2.0);
+      this.sharedNoiseBuffer = this.ctx.createBuffer(1, noiseSamples, this.ctx.sampleRate);
+      const noiseData = this.sharedNoiseBuffer.getChannelData(0);
+      for (let i = 0; i < noiseSamples; i++) {
+        noiseData[i] = Math.random() * 2 - 1;
+      }
     }
 
     const noise = this.ctx.createBufferSource();
-    noise.buffer = buffer;
+    noise.buffer = this.sharedNoiseBuffer;
+    noise.loop = true;
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = filterType;
@@ -67,6 +78,14 @@ class CSAudioEngine {
     noise.connect(filter);
     filter.connect(gain);
     gain.connect(this.masterGain);
+
+    noise.onended = () => {
+      try {
+        noise.disconnect();
+        filter.disconnect();
+        gain.disconnect();
+      } catch (e) {}
+    };
 
     noise.start();
     noise.stop(t + duration);

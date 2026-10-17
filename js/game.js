@@ -52,6 +52,56 @@ class CSGame {
     this.radarCtx = this.radarCanvas.getContext('2d');
     this.clock = new THREE.Clock();
 
+    // --- PERFORMANCE: cached DOM refs used every frame ---
+    this._hudTimer = document.getElementById('round-timer');
+    this._radarFrameSkip = 0; // render radar at ~20 fps, not 60
+
+    // --- PERFORMANCE: shared geometries/materials for particle pools ---
+    this._bloodGeoms = [
+      new THREE.SphereGeometry(0.03, 4, 4),
+      new THREE.SphereGeometry(0.055, 4, 4),
+      new THREE.SphereGeometry(0.07, 4, 4)
+    ];
+    this._bloodMats = [
+      new THREE.MeshBasicMaterial({ color: 0x8b0000 }),
+      new THREE.MeshBasicMaterial({ color: 0xaa0000 }),
+      new THREE.MeshBasicMaterial({ color: 0xcc1111 })
+    ];
+    this._sparkGeom = new THREE.BoxGeometry(0.024, 0.024, 0.024);
+    this._sparkMats = [
+      new THREE.MeshBasicMaterial({ color: 0xffdd44 }),
+      new THREE.MeshBasicMaterial({ color: 0xff6600 })
+    ];
+    this._dustGeom  = new THREE.SphereGeometry(0.065, 4, 4);
+    this._dustMat   = new THREE.MeshBasicMaterial({ color: 0xc4b59d, transparent: true, opacity: 0.65 });
+    this._mistGeom  = new THREE.SphereGeometry(0.075, 4, 4);
+    this._mistMat   = new THREE.MeshBasicMaterial({ color: 0x660000, transparent: true, opacity: 0.35 });
+    this._waterDropletGeom = new THREE.SphereGeometry(0.045, 4, 4);
+    this._waterDropletMat = new THREE.MeshBasicMaterial({ color: 0xccf2f4, transparent: true, opacity: 0.85 });
+    this._waterRingGeom = new THREE.RingGeometry(0.2, 0.45, 16);
+    this._waterRingMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75, side: THREE.DoubleSide });
+    this._tracerMat = new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.95 });
+    this._tracerGeomCache = {}; // keyed by rounded length
+
+    // Decals bounded ring-buffer (max 40 decals to prevent scene graph bloat)
+    this._decals = [];
+    this._maxDecals = 40;
+    this._decalGeom = new THREE.PlaneGeometry(0.14, 0.14);
+    this._decalMat = new THREE.MeshBasicMaterial({
+      color: 0x121212,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      transparent: true,
+      opacity: 0.94
+    });
+
+    // Blood pools bounded array (max 8 pools in scene)
+    this._bloodPools = [];
+    this._maxBloodPools = 8;
+
+    // pending PointLights to remove (avoids setTimeout closures)
+    this._pendingFlashes = [];
+
     this.initThree();
     this.initUI();
     this.animate = this.animate.bind(this);
@@ -134,6 +184,8 @@ class CSGame {
     if (rebuild) {
       if (this.player) {
         this.player.map = this.map;
+        // Invalidate cached map mesh list so next shot rebuilds it
+        if (this.player.invalidateMapMeshCache) this.player.invalidateMapMeshCache();
         const playerSpawnList = this.playerTeam === 'ct' ? this.map.spawnPoints.ct : this.map.spawnPoints.t;
         const pSpawn = (playerSpawnList && playerSpawnList.length > 0) ? playerSpawnList[0] : { x: 0, z: 0 };
         this.player.spawn(pSpawn);
@@ -633,9 +685,10 @@ class CSGame {
   }
 
   setupBots() {
-    // Remove existing bots from scene
+    // Cleanly remove and dispose existing bots from scene
     this.bots.forEach(b => {
-      if (b.meshGroup) this.scene.remove(b.meshGroup);
+      if (b.destroy) b.destroy();
+      else if (b.meshGroup) this.scene.remove(b.meshGroup);
     });
     this.bots = [];
 
@@ -1037,24 +1090,19 @@ class CSGame {
     }, 3000);
   }
 
-  // 3D Visual Effects: Blood & Bullet Decals
+  // 3D Visual Effects: Blood & Bullet Decals (High performance shared materials)
   createBloodSpurt(pos, isHeadshot = false) {
-    const count = isHeadshot ? 28 : 18;
-    const speed = isHeadshot ? 6.5 : 4.0;
+    if (this.particles.length > 200) return;
+
+    const count = isHeadshot ? 16 : 9;
+    const speed = isHeadshot ? 6.0 : 3.8;
 
     for (let i = 0; i < count; i++) {
-      // Mix of small drops and larger blobs
-      const size = isHeadshot
-        ? (Math.random() < 0.3 ? 0.07 : 0.03)
-        : (Math.random() < 0.25 ? 0.055 : 0.025);
-      const geom = new THREE.SphereGeometry(size, 4, 4);
-      // Vary blood color: dark red to bright red
-      const shade = Math.random() < 0.5 ? 0x8b0000 : (Math.random() < 0.5 ? 0xaa0000 : 0xcc1111);
-      const mat = new THREE.MeshBasicMaterial({
-        color: shade,
-        transparent: true,
-        opacity: 0.9 + Math.random() * 0.1
-      });
+      const sizeBucket = isHeadshot
+        ? (Math.random() < 0.35 ? 2 : 0)
+        : (Math.random() < 0.25 ? 1 : 0);
+      const geom = this._bloodGeoms[sizeBucket];
+      const mat = this._bloodMats[i % this._bloodMats.length];
       const p = new THREE.Mesh(geom, mat);
       p.position.copy(pos);
       const angle = Math.random() * Math.PI * 2;
@@ -1066,33 +1114,27 @@ class CSGame {
           upward,
           Math.sin(angle) * lateral
         ),
-        life: 0.5 + Math.random() * 0.5,
-        initialLife: 1.0,
+        life: 0.45 + Math.random() * 0.35,
+        initialLife: 0.8,
         isBlood: true
       };
       this.scene.add(p);
       this.particles.push(p);
     }
 
-    // Blood mist cloud (small, slow-moving particles)
-    const mistCount = isHeadshot ? 10 : 5;
+    // Blood mist cloud
+    const mistCount = isHeadshot ? 4 : 2;
     for (let i = 0; i < mistCount; i++) {
-      const geom = new THREE.SphereGeometry(0.06 + Math.random() * 0.05, 4, 4);
-      const mat = new THREE.MeshBasicMaterial({
-        color: 0x660000,
-        transparent: true,
-        opacity: 0.35
-      });
-      const mist = new THREE.Mesh(geom, mat);
+      const mist = new THREE.Mesh(this._mistGeom, this._mistMat);
       mist.position.copy(pos);
       mist.userData = {
         vel: new THREE.Vector3(
-          (Math.random() - 0.5) * 1.2,
-          Math.random() * 0.6 + 0.1,
-          (Math.random() - 0.5) * 1.2
+          (Math.random() - 0.5) * 1.0,
+          Math.random() * 0.5 + 0.1,
+          (Math.random() - 0.5) * 1.0
         ),
-        life: 0.8 + Math.random() * 0.4,
-        initialLife: 1.2,
+        life: 0.6 + Math.random() * 0.3,
+        initialLife: 0.9,
         isDust: true
       };
       this.scene.add(mist);
@@ -1100,17 +1142,27 @@ class CSGame {
     }
   }
 
-  // Persistent blood pool decal that grows under a dead body
+  // Persistent blood pool decal that grows under a dead body (bounded pool to prevent leaks)
   createBloodPool(pos) {
     const groundY = pos.y + 0.02;
-    const maxScale = 0.7 + Math.random() * 0.6; // 0.7 to 1.3 metres radius
+    const maxScale = 0.7 + Math.random() * 0.5;
+
+    if (!this._bloodPools) this._bloodPools = [];
+    if (this._bloodPools.length >= (this._maxBloodPools || 8)) {
+      const oldest = this._bloodPools.shift();
+      if (oldest) {
+        this.scene.remove(oldest);
+        if (oldest.geometry) oldest.geometry.dispose();
+        if (oldest.material) oldest.material.dispose();
+      }
+    }
 
     // Main pool disc
-    const poolGeom = new THREE.CircleGeometry(maxScale, 12);
+    const poolGeom = new THREE.CircleGeometry(maxScale, 10);
     const poolMat = new THREE.MeshBasicMaterial({
       color: 0x660000,
       transparent: true,
-      opacity: 0,
+      opacity: 0.82,
       depthWrite: false,
       polygonOffset: true,
       polygonOffsetFactor: -3
@@ -1118,97 +1170,55 @@ class CSGame {
     const pool = new THREE.Mesh(poolGeom, poolMat);
     pool.rotation.x = -Math.PI / 2;
     pool.position.set(pos.x + (Math.random() - 0.5) * 0.2, groundY, pos.z + (Math.random() - 0.5) * 0.2);
-
-    // Animate grow-in
-    let elapsed = 0;
-    const growDuration = 3.5;
-    const growInterval = setInterval(() => {
-      elapsed += 0.05;
-      const t = Math.min(1, elapsed / growDuration);
-      poolMat.opacity = t * 0.82;
-      if (t >= 1) clearInterval(growInterval);
-    }, 50);
+    pool.scale.set(0.1, 0.1, 0.1);
 
     this.scene.add(pool);
+    this._bloodPools.push(pool);
 
-    // Small satellite splatter spots around the pool
-    const spotCount = 3 + Math.floor(Math.random() * 4);
-    for (let i = 0; i < spotCount; i++) {
-      const r = 0.08 + Math.random() * 0.18;
-      const spotGeom = new THREE.CircleGeometry(r, 7);
-      const spotMat = new THREE.MeshBasicMaterial({
-        color: 0x550000,
-        transparent: true,
-        opacity: 0.7,
-        depthWrite: false,
-        polygonOffset: true,
-        polygonOffsetFactor: -3
-      });
-      const spot = new THREE.Mesh(spotGeom, spotMat);
-      spot.rotation.x = -Math.PI / 2;
-      const ang = Math.random() * Math.PI * 2;
-      const dist = maxScale * (0.5 + Math.random() * 0.8);
-      spot.position.set(
-        pos.x + Math.cos(ang) * dist,
-        groundY,
-        pos.z + Math.sin(ang) * dist
-      );
-      this.scene.add(spot);
-    }
-
-    // Auto-remove pool after 60 seconds
-    setTimeout(() => {
-      this.scene.remove(pool);
-    }, 60000);
+    // Fast initial scale up
+    let pScale = 0.1;
+    const growInterval = setInterval(() => {
+      pScale += 0.15;
+      if (pool) pool.scale.set(pScale, pScale, pScale);
+      if (pScale >= 1.0) clearInterval(growInterval);
+    }, 40);
   }
 
-
-
   createBulletDecal(pos, normal) {
-    // Authentic CS 1.6 bullet impact decal
-    const decalGeom = new THREE.PlaneGeometry(0.14, 0.14);
-    const decalMat = new THREE.MeshBasicMaterial({
-      color: 0x121212,
-      polygonOffset: true,
-      polygonOffsetFactor: -2,
-      transparent: true,
-      opacity: 0.94
-    });
-    const mark = new THREE.Mesh(decalGeom, decalMat);
+    if (!this._decals) this._decals = [];
+    // Recycle oldest decal when exceeding limit (smooth constant performance)
+    if (this._decals.length >= (this._maxDecals || 40)) {
+      const oldest = this._decals.shift();
+      if (oldest) this.scene.remove(oldest);
+    }
+
+    const mark = new THREE.Mesh(this._decalGeom, this._decalMat);
     mark.position.copy(pos).addScaledVector(normal, 0.012);
     mark.lookAt(pos.clone().add(normal));
     this.scene.add(mark);
-
-    // Auto remove after 25s
-    setTimeout(() => {
-      this.scene.remove(mark);
-    }, 25000);
+    this._decals.push(mark);
   }
 
   // Sparkling orange ricochet debris on stone, metal, and wood
   createSparks(pos, normal) {
-    const sparkCount = 7 + Math.floor(Math.random() * 5);
+    if (this.particles.length > 200) return;
+    const sparkCount = 5 + Math.floor(Math.random() * 3);
     for (let i = 0; i < sparkCount; i++) {
-      const geom = new THREE.BoxGeometry(0.024, 0.024, 0.024);
-      const mat = new THREE.MeshBasicMaterial({
-        color: (Math.random() > 0.35 ? 0xffdd44 : 0xff6600),
-        transparent: true,
-        opacity: 1.0
-      });
-      const spark = new THREE.Mesh(geom, mat);
+      const mat = this._sparkMats[i % this._sparkMats.length];
+      const spark = new THREE.Mesh(this._sparkGeom, mat);
       spark.position.copy(pos).addScaledVector(normal, 0.02);
 
       const spread = new THREE.Vector3(
-        (Math.random() - 0.5) * 4.2,
-        (Math.random() - 0.5) * 4.2,
-        (Math.random() - 0.5) * 4.2
+        (Math.random() - 0.5) * 3.5,
+        (Math.random() - 0.5) * 3.5,
+        (Math.random() - 0.5) * 3.5
       );
-      const vel = normal.clone().multiplyScalar(Math.random() * 3.2 + 2.2).add(spread);
+      const vel = normal.clone().multiplyScalar(Math.random() * 2.8 + 2.0).add(spread);
 
       spark.userData = {
         vel: vel,
-        life: 0.28 + Math.random() * 0.14,
-        initialLife: 0.42
+        life: 0.22 + Math.random() * 0.12,
+        initialLife: 0.34
       };
       this.scene.add(spark);
       this.particles.push(spark);
@@ -1217,25 +1227,20 @@ class CSGame {
 
   // Expanding dust / smoke puff from bullet penetration impact
   createDustPuff(pos, normal) {
-    const dustCount = 4 + Math.floor(Math.random() * 3);
+    if (this.particles.length > 200) return;
+    const dustCount = 2 + Math.floor(Math.random() * 2);
     for (let i = 0; i < dustCount; i++) {
-      const geom = new THREE.SphereGeometry(0.05 + Math.random() * 0.03, 4, 4);
-      const mat = new THREE.MeshBasicMaterial({
-        color: 0xc4b59d,
-        transparent: true,
-        opacity: 0.65
-      });
-      const dust = new THREE.Mesh(geom, mat);
+      const dust = new THREE.Mesh(this._dustGeom, this._dustMat);
       dust.position.copy(pos).addScaledVector(normal, 0.02);
 
-      const vel = normal.clone().multiplyScalar(Math.random() * 0.8 + 0.3).add(
-        new THREE.Vector3((Math.random() - 0.5) * 1.0, Math.random() * 0.7, (Math.random() - 0.5) * 1.0)
+      const vel = normal.clone().multiplyScalar(Math.random() * 0.7 + 0.3).add(
+        new THREE.Vector3((Math.random() - 0.5) * 0.8, Math.random() * 0.6, (Math.random() - 0.5) * 0.8)
       );
 
       dust.userData = {
         vel: vel,
-        life: 0.42 + Math.random() * 0.18,
-        initialLife: 0.55,
+        life: 0.35 + Math.random() * 0.15,
+        initialLife: 0.50,
         isDust: true
       };
       this.scene.add(dust);
@@ -1249,13 +1254,12 @@ class CSGame {
     const len = dir.length();
     if (len < 0.2) return;
 
-    const geom = new THREE.CylinderGeometry(0.02, 0.02, len, 4);
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0xffd166,
-      transparent: true,
-      opacity: 0.95
-    });
-    const tracer = new THREE.Mesh(geom, mat);
+    // Reuse geometry bucketed by rounded length (avoids new allocation every shot)
+    const lenKey = Math.round(len * 2) / 2;
+    if (!this._tracerGeomCache[lenKey]) {
+      this._tracerGeomCache[lenKey] = new THREE.CylinderGeometry(0.02, 0.02, lenKey, 4);
+    }
+    const tracer = new THREE.Mesh(this._tracerGeomCache[lenKey], this._tracerMat);
     tracer.position.copy(fromPos).addScaledVector(dir, 0.5);
     tracer.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
 
@@ -1263,65 +1267,59 @@ class CSGame {
     this.scene.add(tracer);
     this.tracers.push(tracer);
 
-    // Dynamic 3D Muzzle Flash Light (illuminates walls, props, characters)
+    // Dynamic 3D Muzzle Flash Light — tracked for synchronous removal (no setTimeout leak)
     if (this.scene) {
       const flash = new THREE.PointLight(0xffea9f, 3.5, 14);
       flash.position.copy(fromPos);
+      flash.userData = { removeAt: performance.now() + 40 };
       this.scene.add(flash);
-      setTimeout(() => { if (this.scene) this.scene.remove(flash); }, 40);
+      this._pendingFlashes.push(flash);
     }
   }
 
   // Ocean Water Splash Effect (Droplets + Expanding Ripple Ring)
   createWaterSplash(pos) {
-    // Water droplets spray
-    for (let i = 0; i < 14; i++) {
-      const geom = new THREE.SphereGeometry(0.045, 4, 4);
-      const mat = new THREE.MeshBasicMaterial({ color: 0xccf2f4, transparent: true, opacity: 0.85 });
-      const droplet = new THREE.Mesh(geom, mat);
+    // Water droplets spray (shared geometry and material)
+    for (let i = 0; i < 10; i++) {
+      const droplet = new THREE.Mesh(this._waterDropletGeom, this._waterDropletMat);
       droplet.position.set(pos.x, 0.05, pos.z);
       droplet.userData = {
         vel: new THREE.Vector3(
-          (Math.random() - 0.5) * 3.5,
-          Math.random() * 3.8 + 1.8,
-          (Math.random() - 0.5) * 3.5
+          (Math.random() - 0.5) * 3.0,
+          Math.random() * 3.2 + 1.5,
+          (Math.random() - 0.5) * 3.0
         ),
-        life: 0.55
+        life: 0.45,
+        initialLife: 0.45
       };
       this.scene.add(droplet);
       this.particles.push(droplet);
     }
 
-    // Expanding water ripple ring
-    const ringGeom = new THREE.RingGeometry(0.2, 0.45, 16);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0.75,
-      side: THREE.DoubleSide
-    });
-    const ring = new THREE.Mesh(ringGeom, ringMat);
+    // Expanding water ripple ring (shared geometry and material)
+    const ring = new THREE.Mesh(this._waterRingGeom, this._waterRingMat);
     ring.rotation.x = -Math.PI / 2;
     ring.position.set(pos.x, 0.06, pos.z);
-    ring.userData = { isRipple: true, life: 0.8, scaleSpeed: 3.2 };
+    ring.userData = { isRipple: true, life: 0.7, scaleSpeed: 3.0 };
     this.scene.add(ring);
     this.particles.push(ring);
   }
 
   // Directional Red Damage Indicator Arc on HUD
   showDamageIndicator(angle) {
-    let ind = document.getElementById('damage-dir-indicator');
-    if (!ind) {
-      ind = document.createElement('div');
-      ind.id = 'damage-dir-indicator';
-      document.body.appendChild(ind);
+    if (!this._damageIndicator) {
+      this._damageIndicator = document.getElementById('damage-dir-indicator');
     }
+    const ind = this._damageIndicator;
+    if (!ind) return;
 
     const deg = THREE.MathUtils.radToDeg(angle);
     ind.style.transform = `translate(-50%, -50%) rotate(${deg}deg)`;
-    ind.classList.remove('active');
-    void ind.offsetWidth; // Force CSS reflow
     ind.classList.add('active');
+    if (this._damageIndicatorTimer) clearTimeout(this._damageIndicatorTimer);
+    this._damageIndicatorTimer = setTimeout(() => {
+      ind.classList.remove('active');
+    }, 500);
   }
 
   // 2D Tactical Minimap / Radar Rendering (Positioned top-right)
@@ -1511,10 +1509,12 @@ class CSGame {
         }
       }
 
-      // Update timer HUD
+      // Update timer HUD (use cached DOM ref)
       const mins = Math.floor(this.roundTimer / 60);
       const secs = Math.floor(this.roundTimer % 60);
-      document.getElementById('round-timer').textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      if (this._hudTimer) {
+        this._hudTimer.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      }
     }
 
     // Update Player & Bots
@@ -1568,9 +1568,8 @@ class CSGame {
         p.userData.vel.y -= 13.0 * delta; // Gravity
         p.position.addScaledVector(p.userData.vel, delta);
         if (p.position.y < 0.04) p.position.y = 0.04;
-        if (p.userData.initialLife) {
-          p.material.opacity = Math.max(0, p.userData.life / p.userData.initialLife);
-        }
+        const progress = Math.max(0.05, p.userData.life / (p.userData.initialLife || 0.6));
+        p.scale.setScalar(progress);
       }
 
       if (p.userData.life <= 0) {
@@ -1591,8 +1590,22 @@ class CSGame {
       led.material.color.setHex(isLit ? 0xffaa00 : 0x332200);
     }
 
-    // Render Radar
-    this.renderRadar();
+    // Expire pending PointLight muzzle flashes (synchronous, no setTimeout)
+    if (this._pendingFlashes.length > 0) {
+      const now = performance.now();
+      for (let i = this._pendingFlashes.length - 1; i >= 0; i--) {
+        if (now >= this._pendingFlashes[i].userData.removeAt) {
+          this.scene.remove(this._pendingFlashes[i]);
+          this._pendingFlashes.splice(i, 1);
+        }
+      }
+    }
+
+    // Render Radar at ~20 fps (every 3rd frame) to reduce Canvas 2D overhead
+    this._radarFrameSkip = (this._radarFrameSkip + 1) % 3;
+    if (this._radarFrameSkip === 0) {
+      this.renderRadar();
+    }
 
     // Render 3D Scene
     this.renderer.render(this.scene, this.camera);

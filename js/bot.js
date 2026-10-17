@@ -56,6 +56,7 @@ class CSBot {
     this.state = 'PATROL';
     this.currentTarget = null;
     this.lastKnownEnemyPos = null;
+    this.scanThrottleTimer = Math.random() * 0.08; // Stagger AI sensory perception ticks
     this.chaseTimer = 0;
     this.chaseLookTimer = 0;
     this.retreatTimer = 0;
@@ -653,6 +654,7 @@ class CSBot {
     if (this.taggingTimer > 0) this.taggingTimer -= delta;
     if (this.burstCooldown > 0) this.burstCooldown -= delta;
     if (this.shotCooldown > 0) this.shotCooldown -= delta;
+    if (this.scanThrottleTimer > 0) this.scanThrottleTimer -= delta;
 
     if (this.isReloading) {
       this.reloadTimer -= delta;
@@ -763,8 +765,9 @@ class CSBot {
           return;
         }
       } else {
-        // Target is visible, update memory position
-        this.lastKnownEnemyPos = this.currentTarget.position.clone();
+        // Target is visible, update memory position without allocating new vector
+        if (!this.lastKnownEnemyPos) this.lastKnownEnemyPos = new THREE.Vector3();
+        this.lastKnownEnemyPos.copy(this.currentTarget.position);
       }
       return;
     }
@@ -782,12 +785,17 @@ class CSBot {
       return;
     }
 
+    // AI Sensory perception throttling during patrol (checking at ~12 Hz is far faster than human reaction and saves massive CPU)
+    if (this.scanThrottleTimer > 0) return;
+    this.scanThrottleTimer = 0.08 + Math.random() * 0.04;
+
     // Scan for Player
     if (player && !player.isDead && player.position && player.team !== this.team) {
       const dist = this.position.distanceTo(player.position);
       if (dist < 54 && this.hasLineOfSight(player.position)) {
         this.currentTarget = player;
-        this.lastKnownEnemyPos = player.position.clone();
+        if (!this.lastKnownEnemyPos) this.lastKnownEnemyPos = new THREE.Vector3();
+        this.lastKnownEnemyPos.copy(player.position);
         this.state = 'ENGAGE';
         // Authentic Z-Bot human reaction delay (250 - 350 ms) before opening fire
         this.reactionTimer = 0.25 + Math.random() * 0.10;
@@ -798,12 +806,14 @@ class CSBot {
 
     // Scan for Enemy Bots
     if (allBots && Array.isArray(allBots)) {
-      for (const otherBot of allBots) {
+      for (let i = 0; i < allBots.length; i++) {
+        const otherBot = allBots[i];
         if (!otherBot || otherBot === this || otherBot.isDead || !otherBot.position || otherBot.team === this.team) continue;
         const dist = this.position.distanceTo(otherBot.position);
         if (dist < 48 && this.hasLineOfSight(otherBot.position)) {
           this.currentTarget = otherBot;
-          this.lastKnownEnemyPos = otherBot.position.clone();
+          if (!this.lastKnownEnemyPos) this.lastKnownEnemyPos = new THREE.Vector3();
+          this.lastKnownEnemyPos.copy(otherBot.position);
           this.state = 'ENGAGE';
           this.reactionTimer = 0.25 + Math.random() * 0.10; // 250 - 350 ms
           return;
@@ -853,11 +863,13 @@ class CSBot {
     const dz = totalVz * delta;
 
     // 2. Sliding Collision with World Colliders (Walls, Boxes, Textures, Obstacles)
+    if (!CSBot._testPos) CSBot._testPos = new THREE.Vector3();
+
     // Test X axis movement
     if (Math.abs(dx) > 0.0001) {
-      const testX = { x: this.position.x + dx, y: this.position.y, z: this.position.z };
+      CSBot._testPos.set(this.position.x + dx, this.position.y, this.position.z);
       const blockedX = this.map && typeof this.map.checkCollision === 'function'
-        ? this.map.checkCollision(testX, botRadius, currentFeetY)
+        ? this.map.checkCollision(CSBot._testPos, botRadius, currentFeetY)
         : false;
       if (!blockedX) {
         this.position.x += dx;
@@ -870,9 +882,9 @@ class CSBot {
 
     // Test Z axis movement
     if (Math.abs(dz) > 0.0001) {
-      const testZ = { x: this.position.x, y: this.position.y, z: this.position.z + dz };
+      CSBot._testPos.set(this.position.x, this.position.y, this.position.z + dz);
       const blockedZ = this.map && typeof this.map.checkCollision === 'function'
-        ? this.map.checkCollision(testZ, botRadius, currentFeetY)
+        ? this.map.checkCollision(CSBot._testPos, botRadius, currentFeetY)
         : false;
       if (!blockedZ) {
         this.position.z += dz;
@@ -944,18 +956,32 @@ class CSBot {
     if (!targetPos || typeof targetPos.x !== 'number' || typeof targetPos.z !== 'number') return false;
     const startY = this.position.y + (this.isCrouching ? 1.05 : 1.45);
     const targetY = (targetPos.y !== undefined ? targetPos.y : 0) + 1.25;
-    const from = new THREE.Vector3(this.position.x, startY, this.position.z);
-    const to = new THREE.Vector3(targetPos.x, targetY, targetPos.z);
+
+    if (!CSBot._losFrom) {
+      CSBot._losFrom = new THREE.Vector3();
+      CSBot._losTo = new THREE.Vector3();
+      CSBot._losDir = new THREE.Vector3();
+      CSBot._losRay = new THREE.Ray();
+      CSBot._losHitPoint = new THREE.Vector3();
+    }
+
+    const from = CSBot._losFrom.set(this.position.x, startY, this.position.z);
+    const to = CSBot._losTo.set(targetPos.x, targetY, targetPos.z);
     const distToTarget = from.distanceTo(to);
     if (distToTarget < 0.4) return true;
 
-    const dir = new THREE.Vector3().subVectors(to, from).normalize();
-    const ray = new THREE.Ray(from, dir);
-    const hitPoint = new THREE.Vector3();
+    const dir = CSBot._losDir.subVectors(to, from).normalize();
+    const ray = CSBot._losRay;
+    ray.origin.copy(from);
+    ray.direction.copy(dir);
+    const hitPoint = CSBot._losHitPoint;
 
     if (this.map && this.map.colliders) {
-      for (const box of this.map.colliders) {
-        if (box.max.y <= Math.min(startY, targetY) - 0.25) continue;
+      const colliders = this.map.colliders;
+      const minY = Math.min(startY, targetY) - 0.25;
+      for (let i = 0; i < colliders.length; i++) {
+        const box = colliders[i];
+        if (box.max.y <= minY) continue;
         if (ray.intersectBox(box, hitPoint)) {
           const distToHit = from.distanceTo(hitPoint);
           // Solid obstacle blocks raycast if intersection is between bot and target
@@ -1619,6 +1645,29 @@ class CSBot {
         this.isCrouching = false;
         this.state = 'PATROL';
         this.pickNextPatrolDestination();
+      }
+    }
+  }
+
+  // Proper cleanup of 3D meshes, materials and geometries
+  destroy() {
+    if (this.meshGroup) {
+      this.meshGroup.traverse(obj => {
+        if (obj.geometry) {
+          try { obj.geometry.dispose(); } catch (e) {}
+        }
+        if (obj.material) {
+          try {
+            if (Array.isArray(obj.material)) {
+              obj.material.forEach(m => m.dispose());
+            } else {
+              obj.material.dispose();
+            }
+          } catch (e) {}
+        }
+      });
+      if (this.scene) {
+        this.scene.remove(this.meshGroup);
       }
     }
   }

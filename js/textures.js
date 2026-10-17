@@ -202,10 +202,21 @@ class CSTextureGenerator {
   }
 
   updateWater(delta) {
-    if (!this.waterTexture || !this.animatedWaterCtx) return;
-    this.waterTime += delta * 1.2;
-    this.renderWaterFrame(this.waterTime);
-    this.waterTexture.needsUpdate = true;
+    if (!this.waterTexture) return;
+    // Silky smooth GPU-accelerated water surface motion via texture coordinate scrolling (0 CPU cost)
+    this.waterTexture.offset.x = (this.waterTexture.offset.x + delta * 0.035) % 1;
+    this.waterTexture.offset.y = (this.waterTexture.offset.y + delta * 0.020) % 1;
+
+    // Throttle the heavy CPU 2D canvas caustics redraw to ~8 FPS to prevent WebGL bus stalls
+    if (this.animatedWaterCtx) {
+      this._waterRedrawTimer = (this._waterRedrawTimer || 0) + delta;
+      if (this._waterRedrawTimer >= 0.12) {
+        this._waterRedrawTimer = 0;
+        this.waterTime += 0.15;
+        this.renderWaterFrame(this.waterTime);
+        this.waterTexture.needsUpdate = true;
+      }
+    }
   }
 
   // 4. Weathered Beach Boardwalk & Pier Wood Planks Texture
