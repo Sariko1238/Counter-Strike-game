@@ -153,6 +153,18 @@ class CSBot {
         this.reactionDelay = 0.25; // 250ms
         this.headshotChance = 0.15;
         break;
+      case 'expert':
+        this.baseAccuracy = 0.82;
+        this.moveSpeed = 5.3;
+        this.reactionDelay = 0.16; // 160ms pro reaction
+        this.headshotChance = 0.28;
+        break;
+      case 'passive':
+        this.baseAccuracy = 0.15;
+        this.moveSpeed = 2.0;
+        this.reactionDelay = 0.80;
+        this.headshotChance = 0.01;
+        break;
     }
   }
 
@@ -499,9 +511,9 @@ class CSBot {
       });
     }
 
-    // Play authentic CS 1.6 death sound
+    // Play authentic CS 1.6 / CS:GO death sound with 3D spatial position
     if (window.csAudio && window.csAudio.playDeathSound) {
-      window.csAudio.playDeathSound(isHeadshot);
+      window.csAudio.playDeathSound(isHeadshot, this.position);
     }
 
     // Drop C4 on the ground if carrying it
@@ -921,9 +933,14 @@ class CSBot {
         this.footstepTimer = 0;
         if (window.csGame && window.csGame.player && window.csGame.player.position && !window.csGame.player.isDead) {
           const distToPlayer = this.position.distanceTo(window.csGame.player.position);
-          if (distToPlayer < 18 && window.csAudio && typeof window.csAudio.playFootstep === 'function') {
-            const surface = (this.map && window.CSMinecraftMap && this.map instanceof window.CSMinecraftMap) ? 'wood' : 'sand';
-            window.csAudio.playFootstep(surface);
+          if (distToPlayer < 24 && window.csAudio && typeof window.csAudio.playFootstep === 'function') {
+            let surface = 'concrete';
+            if (window.csGame.currentMapId === 'beach') {
+              surface = (this.position.x >= 10 && this.position.z >= 16) ? 'wood' : 'sand';
+            } else if (window.csGame.currentMapId === 'minecraft') {
+              surface = (this.map && window.CSMinecraftMap && this.map instanceof window.CSMinecraftMap) ? 'wood' : 'concrete';
+            }
+            window.csAudio.playFootstep(surface, this.position);
           }
         }
       }
@@ -1296,11 +1313,11 @@ class CSBot {
     this.isCrouching = false; // Stand up for mobility
     this.burstShotsRemaining = 0;
 
-    // Play reload sound if within audible range of player
+    // Play reload sound if within audible range of player with 3D HRTF
     if (window.csAudio && window.csGame && window.csGame.player && window.csGame.player.position && !window.csGame.player.isDead) {
       const distToPlayer = this.position.distanceTo(window.csGame.player.position);
-      if (distToPlayer < 26) {
-        window.csAudio.playReload();
+      if (distToPlayer < 35) {
+        window.csAudio.playReload(this.position);
       }
     }
   }
@@ -1330,21 +1347,21 @@ class CSBot {
   fireBullet(dist) {
     if (!this.currentTarget || this.currentTarget.isDead || !this.currentTarget.position) return;
 
-    // 1. Play authentic weapon sound
+    // 1. Play authentic weapon sound with 3D HRTF spatial positioning
     if (this.weapon.id === 'awp') {
-      window.csAudio.playAWP();
+      window.csAudio.playAWP(this.position);
     } else if (this.weapon.id === 'scout') {
-      window.csAudio.playScout();
+      window.csAudio.playScout(this.position);
     } else if (this.weapon.id === 'scar20') {
-      window.csAudio.playScar20();
+      window.csAudio.playScar20(this.position);
     } else if (this.weapon.id === 'deagle') {
-      window.csAudio.playDeagle();
+      window.csAudio.playDeagle(this.position);
     } else if (this.weapon.id === 'galil') {
-      window.csAudio.playAK47();
+      window.csAudio.playAK47(this.position);
     } else if (this.team === 'ct') {
-      window.csAudio.playM4A1(false);
+      window.csAudio.playM4A1(false, this.position);
     } else {
-      window.csAudio.playAK47();
+      window.csAudio.playAK47(this.position);
     }
 
     // 2. Visual 3D Muzzle Flash on gun barrel
@@ -1554,7 +1571,7 @@ class CSBot {
     if (this.plantBeepTimer > 0.45) {
       this.plantBeepTimer = 0;
       if (window.csAudio && window.csAudio.playC4KeypadPress) {
-        window.csAudio.playC4KeypadPress();
+        window.csAudio.playC4KeypadPress(1200, this.position);
       }
     }
 
@@ -1634,7 +1651,7 @@ class CSBot {
       if (this.defuseSoundTimer > 0.7) {
         this.defuseSoundTimer = 0;
         if (window.csAudio && window.csAudio.playC4Disarm) {
-          window.csAudio.playC4Disarm();
+          window.csAudio.playC4Disarm(this.position);
         }
       }
 

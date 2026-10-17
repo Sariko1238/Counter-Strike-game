@@ -2,8 +2,19 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Counter-Strike 1.6 - 3D Web Edition (de_beach)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Counter-Strike 1.6 - 3D Web Edition</title>
+  
+  <!-- PWA & Standalone Desktop / Mobile App Configuration -->
+  <meta name="theme-color" content="#de9b35">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CS 1.6">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+
   <!-- Google Fonts for authentic gaming typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -161,6 +172,95 @@
           <span id="hud-ammo-reserve" class="hud-val sub">90</span>
         </div>
       </div>
+  </div>
+
+  <!-- Virtual Mobile & Android APK Touch Controls -->
+  <div id="touch-controls-hud" class="hidden">
+    <!-- Left Zone: Virtual Dynamic Joystick for WASD movement -->
+    <div id="touch-joystick-zone">
+      <div id="touch-joystick-base">
+        <div id="touch-joystick-stick"></div>
+      </div>
+    </div>
+
+    <!-- Right Zone: Camera Aim Swipe Trackpad Area -->
+    <div id="touch-look-zone"></div>
+
+    <!-- Right Side Tactical Touch Action Buttons -->
+    <div class="touch-actions-cluster">
+      <!-- Fire Button (Large round glowing red/orange) -->
+      <button type="button" id="btn-touch-fire" class="touch-btn touch-btn-fire" aria-label="Стрельба">
+        <span class="touch-btn-icon">🔥</span>
+        <span class="touch-btn-label">ОГОНЬ</span>
+      </button>
+
+      <!-- Scope / Aim Button -->
+      <button type="button" id="btn-touch-scope" class="touch-btn touch-btn-scope" aria-label="Прицел">
+        <span class="touch-btn-icon">🎯</span>
+        <span class="touch-btn-label">ПРИЦЕЛ</span>
+      </button>
+
+      <!-- Jump Button -->
+      <button type="button" id="btn-touch-jump" class="touch-btn touch-btn-jump" aria-label="Прыжок">
+        <span class="touch-btn-icon">🦘</span>
+        <span class="touch-btn-label">ПРЫЖОК</span>
+      </button>
+
+      <!-- Crouch Button -->
+      <button type="button" id="btn-touch-crouch" class="touch-btn touch-btn-crouch" aria-label="Присесть">
+        <span class="touch-btn-icon">🧎</span>
+        <span class="touch-btn-label">ПРИСЕСТЬ</span>
+      </button>
+
+      <!-- Reload Button -->
+      <button type="button" id="btn-touch-reload" class="touch-btn touch-btn-reload" aria-label="Перезарядка">
+        <span class="touch-btn-icon">🔄</span>
+        <span class="touch-btn-label">ПЕРЕЗАРЯДКА</span>
+      </button>
+    </div>
+
+    <!-- Quick Utility Bar (Top-Center of Mobile View) -->
+    <div class="touch-quick-bar">
+      <!-- Buy Menu Button -->
+      <button type="button" id="btn-touch-buy" class="touch-pill-btn">
+        <span>🛒</span> <span>ЗАКУП</span>
+      </button>
+      <!-- Quick Weapon Switcher (Primary / Secondary / Knife) -->
+      <button type="button" id="btn-touch-slot1" class="touch-pill-btn">
+        <span>1️⃣</span> <span>ОСНОВНОЕ</span>
+      </button>
+      <button type="button" id="btn-touch-slot2" class="touch-pill-btn">
+        <span>2️⃣</span> <span>ПИСТОЛЕТ</span>
+      </button>
+      <button type="button" id="btn-touch-slot3" class="touch-pill-btn">
+        <span>🔪</span> <span>НОЖ</span>
+      </button>
+      <button type="button" id="btn-touch-use" class="touch-pill-btn touch-use-btn">
+        <span>💣</span> <span>ДЕЙСТВИЕ (E)</span>
+      </button>
+    </div>
+
+    <!-- Dedicated Touch Pause / Menu Button (Top Left Corner of Mobile Screen) -->
+    <button type="button" id="btn-touch-pause" class="touch-pause-btn" aria-label="Меню / Пауза">
+      <span class="touch-pause-icon">⏸</span>
+      <span class="touch-pause-label">МЕНЮ</span>
+    </button>
+  </div>
+
+  <!-- Mobile Portrait Orientation Warning Overlay -->
+  <div id="mobile-portrait-warning" class="hidden">
+    <div class="portrait-card">
+      <div class="rotate-phone-anim">
+        <span class="phone-icon">📱</span>
+        <span class="rotate-arrow">↷</span>
+      </div>
+      <div class="portrait-title">ПОВЕРНИТЕ ТЕЛЕФОН</div>
+      <div class="portrait-subtitle">
+        Counter-Strike 1.6 оптимизирована для горизонтального экрана (Landscape). Поверните устройство на 90° для удобного управления сенсорным джойстиком!
+      </div>
+      <button type="button" id="btn-force-landscape" class="cs-btn-primary portrait-btn">
+        <span>🔄</span> <span>Включить полноэкранный режим</span>
+      </button>
     </div>
   </div>
 
@@ -189,170 +289,1004 @@
     </div>
   </div>
 
-  <!-- CS:GO Style 3D Lobby & Start Screen -->
+  <!-- Modern CS:GO Panorama UI & Interactive 3D Lobby -->
   <div id="menu-overlay">
-    <div class="lobby-screen-layout">
-      <!-- Left Sidebar: Controls & Play Button -->
-      <div class="lobby-sidebar">
-        <div class="cs-logo-banner">
-          <div class="banner-top-row">
-            <div class="cs-title" data-i18n-html="game_title">COUNTER-STRIKE <span>GO</span></div>
-            <button id="btn-lang-toggle" class="lang-toggle-btn" title="Сменить язык / Switch Language">🌐 <b>RU</b> / EN</button>
-          </div>
-          <div class="cs-subtitle" data-i18n="game_subtitle">РЕЖИМ «1 ПРОТИВ 5» • 3D LOBBY SHOWCASE</div>
+    <!-- Panorama Top Navigation Bar -->
+    <header class="panorama-navbar">
+      <!-- Left: Logo & Title -->
+      <div class="nav-brand">
+        <div class="brand-logo-icon">CS</div>
+        <div class="brand-text-group">
+          <div class="brand-title" data-i18n-html="game_title">COUNTER-STRIKE <span>2</span></div>
+          <div class="brand-badge" data-i18n="panorama_edition">PANORAMA UI • 3D LOBBY</div>
+        </div>
+      </div>
+
+      <!-- Center: Main Navigation Tabs -->
+      <nav class="nav-tabs" id="panorama-tabs">
+        <button type="button" class="nav-tab-btn active" data-tab="play">
+          <span class="tab-icon">🎮</span>
+          <span class="tab-label" data-i18n="tab_play">ИГРАТЬ</span>
+        </button>
+        <button type="button" class="nav-tab-btn" data-tab="loadout">
+          <span class="tab-icon">🔫</span>
+          <span class="tab-label" data-i18n="tab_loadout">ОРУЖЕЙНАЯ</span>
+        </button>
+        <button type="button" class="nav-tab-btn" data-tab="servers">
+          <span class="tab-icon">🌐</span>
+          <span class="tab-label" data-i18n="tab_servers">СЕРВЕРЫ</span>
+        </button>
+        <button type="button" class="nav-tab-btn" data-tab="stats">
+          <span class="tab-icon">🏆</span>
+          <span class="tab-label" data-i18n="tab_stats">СТАТИСТИКА</span>
+        </button>
+        <button type="button" class="nav-tab-btn" data-tab="settings">
+          <span class="tab-icon">⚙️</span>
+          <span class="tab-label" data-i18n="tab_settings">НАСТРОЙКИ</span>
+        </button>
+      </nav>
+
+      <!-- Right Controls: Theme Selector, Sound Pack, Music, Lang & Profile Card -->
+      <div class="nav-controls">
+        <!-- 3D Lobby Theme Selector Dropdown/Pills -->
+        <div class="lobby-theme-selector" title="Сменить локацию лобби">
+          <span class="theme-icon">🌆</span>
+          <select id="select-lobby-theme" class="theme-dropdown">
+            <option value="dust2">🏜️ Dust II</option>
+            <option value="mirage">🏛️ Mirage</option>
+            <option value="inferno">🔥 Inferno (Ночь)</option>
+            <option value="cs16">📟 CS 1.6 Classic</option>
+          </select>
         </div>
 
-        <div class="menu-actions top-actions">
-          <button id="btn-start-game" class="cs-btn-primary lobby-play-btn">
-            <span class="play-icon">▶</span> <span class="play-text" data-i18n="play_btn">В БОЙ (PLAY)</span>
-          </button>
-          <button id="btn-restart-game" class="cs-btn-secondary hidden" data-i18n="restart_btn">НАЧАТЬ ЗАНОВО</button>
-        </div>
+        <!-- Ambient Tactical Drone Music Toggle -->
+        <button type="button" id="btn-ambient-music" class="nav-icon-btn active" title="Фоновая музыка лобби / Ambient Music">
+          <span class="nav-btn-icon">🎵</span>
+        </button>
 
-        <div class="team-select-container">
-          <h3 data-i18n="team_selection_title">ВЫБОР СТОРОНЫ (TEAM SELECTION)</h3>
-          <div class="team-buttons">
-            <button id="btn-join-ct" class="team-btn ct-btn active">
-              <span class="team-icon">👮</span>
-              <span class="team-name" data-i18n="team_ct_title">1 CT ПРОТИВ 5 T</span>
-              <span class="team-desc" data-i18n="team_ct_desc">Спецназ SAS. 5 врагов с бесконечным респавном.</span>
-            </button>
-            <button id="btn-join-t" class="team-btn t-btn">
-              <span class="team-icon">🥷</span>
-              <span class="team-name" data-i18n="team_t_title">1 T ПРОТИВ 5 CT</span>
-              <span class="team-desc" data-i18n="team_t_desc">Террористы Phoenix. 5 спецназовцев с бесконечным респавном.</span>
-            </button>
+        <!-- Sound Pack Manager Modal Launcher -->
+        <button type="button" id="btn-open-soundpack-nav" class="nav-icon-btn" title="Менеджер звуков CS:GO">
+          <span class="nav-btn-icon">🔊</span>
+        </button>
+
+        <!-- Bilingual Switcher -->
+        <button type="button" id="btn-lang-toggle" class="lang-toggle-btn" title="Сменить язык / Switch Language">
+          🌐 <b>RU</b> / EN
+        </button>
+
+        <!-- Player Profile Card Widget -->
+        <div class="profile-card-widget" id="profile-card">
+          <div class="profile-avatar-wrap">
+            <div class="profile-avatar" id="profile-avatar-icon">👮</div>
+            <div class="profile-rank-emblem" id="profile-rank-icon" title="The Global Elite">⭐</div>
           </div>
-        </div>
-
-        <div class="lobby-accordion-section">
-          <div class="game-settings-grid">
-            <div class="setting-item map-item">
-              <label for="select-map" data-i18n="setting_map">Выбор Карты:</label>
-              <select id="select-map">
-                <option value="minecraft" selected data-i18n="map_minecraft">🧱 de_minecraft (Мир Майнкрафт - Трава, Камень, Дерево)</option>
-                <option value="dust2" data-i18n="map_dust2">🏜️ de_dust2 (Легендарный Даст 2)</option>
-                <option value="beach" data-i18n="map_beach">🏖️ de_beach (Тропический курорт)</option>
-              </select>
+          <div class="profile-info">
+            <div class="profile-name-row">
+              <span id="profile-nickname" class="profile-nickname" title="Нажмите для смены ника">Player_1337</span>
+              <button type="button" id="btn-edit-nick" class="nick-edit-icon" title="Изменить имя">✎</button>
             </div>
-            <div class="setting-item">
-              <label for="select-difficulty" data-i18n="setting_difficulty">Сложность Ботов:</label>
-              <select id="select-difficulty">
-                <option value="easy" data-i18n="diff_easy">Легко (Easy)</option>
-                <option value="normal" selected data-i18n="diff_normal">Средне (Normal)</option>
-                <option value="hard" data-i18n="diff_hard">Профи (CS Veteran)</option>
-              </select>
+            <div class="profile-sub-row">
+              <span class="profile-rank-title" id="profile-rank-title">THE GLOBAL ELITE</span>
+              <span class="profile-xp-tag">LVL 28</span>
             </div>
-            <div class="setting-item">
-              <label for="select-bot-count" data-i18n="setting_enemies">Количество Врагов:</label>
-              <select id="select-bot-count" disabled>
-                <option value="5" selected data-i18n="enemies_count">5 Врагов (Режим 1 vs 5)</option>
-              </select>
-            </div>
-            <div class="setting-item">
-              <label for="range-sensitivity" data-i18n="setting_sens">Чувствительность Мыши:</label>
-              <input type="range" id="range-sensitivity" min="0.5" max="3.0" step="0.1" value="1.2">
-              <span id="sens-val">1.2</span>
-            </div>
-            <div class="setting-item">
-              <label for="range-volume" data-i18n="setting_vol">Громкость Звука:</label>
-              <input type="range" id="range-volume" min="0" max="1.0" step="0.05" value="0.7">
-              <span id="vol-val">70%</span>
-            </div>
-          </div>
-
-          <!-- Кастомизация: Скины Minecraft, CS Скины оружия и Прицелы -->
-          <div class="customization-section">
-            <h3 data-i18n="customization_title">🎨 КАСТОМИЗАЦИЯ И СКИНЫ</h3>
-            <div class="customization-grid">
-              <div class="setting-item">
-                <label for="select-char-skin" data-i18n="setting_char_skin">Скин Персонажа:</label>
-                <select id="select-char-skin">
-                  <option value="default" selected data-i18n="skin_char_default">👮 Классический CS (Спецназ / Т)</option>
-                  <option value="steve" data-i18n="skin_char_steve">⛏️ Стив (Minecraft Steve)</option>
-                  <option value="creeper" data-i18n="skin_char_creeper">💥 Крипер (Minecraft Creeper)</option>
-                  <option value="diamond" data-i18n="skin_char_diamond">💎 Алмазный Стив (Diamond Armor)</option>
-                </select>
-              </div>
-              <div class="setting-item">
-                <label for="select-reticle" data-i18n="setting_reticle">Стиль Прицела [H]:</label>
-                <select id="select-reticle">
-                  <option value="red_dot" data-i18n="reticle_red_dot">🔴 Red Dot (Коллиматорная точка)</option>
-                  <option value="holographic" data-i18n="reticle_holographic">⭕ EOTech (Голографический круг)</option>
-                  <option value="tactical_cross" data-i18n="reticle_tactical_cross">🟢 Tactical Cross (Тактический)</option>
-                  <option value="mil_dot" data-i18n="reticle_mil_dot">🎯 Mil-Dot (Снайперский)</option>
-                  <option value="cs_classic" selected data-i18n="reticle_cs_classic">➕ CS Classic (Динамический)</option>
-                </select>
-              </div>
-              <div class="setting-item">
-                <label for="select-awp-skin" data-i18n="setting_awp_skin">Скин AWP:</label>
-                <select id="select-awp-skin">
-                  <option value="dragon_lore" selected data-i18n="awp_dragon_lore">🐉 AWP | Dragon Lore (Дракон)</option>
-                  <option value="default" data-i18n="awp_default">Классический AWP</option>
-                </select>
-              </div>
-              <div class="setting-item">
-                <label for="select-ak-skin" data-i18n="setting_ak_skin">Скин AK-47:</label>
-                <select id="select-ak-skin">
-                  <option value="asiimov" selected data-i18n="ak_asiimov">⚡ AK-47 | Asiimov (Азимов)</option>
-                  <option value="default" data-i18n="ak_default">Классическое дерево</option>
-                </select>
-              </div>
-              <div class="setting-item">
-                <label for="select-m4-skin" data-i18n="setting_m4_skin">Скин M4A1:</label>
-                <select id="select-m4-skin">
-                  <option value="howl" selected data-i18n="m4_howl">🐺 M4A1 | Howl (Вой)</option>
-                  <option value="default" data-i18n="m4_default">Классический M4A1</option>
-                </select>
-              </div>
-              <div class="setting-item">
-                <label for="select-deagle-skin" data-i18n="setting_deagle_skin">Скин Deagle:</label>
-                <select id="select-deagle-skin">
-                  <option value="printstream" selected data-i18n="deagle_printstream">✨ Deagle | Printstream (Перламутр)</option>
-                  <option value="default" data-i18n="deagle_default">Классическая сталь</option>
-                </select>
-              </div>
-              <div class="setting-item">
-                <label for="select-knife-skin" data-i18n="setting_knife_skin">Скин Ножа:</label>
-                <select id="select-knife-skin">
-                  <option value="doppler" selected data-i18n="knife_doppler">🔮 Керамбит | Doppler Phase 2 & Fade</option>
-                  <option value="default" data-i18n="knife_default">Стандартный штык-нож</option>
-                </select>
-              </div>
-              <div class="setting-item">
-                <label for="select-scout-skin" data-i18n="setting_scout_skin">Скин SSG 08:</label>
-                <select id="select-scout-skin">
-                  <option value="bloodsport" selected data-i18n="scout_bloodsport">🏎️ SSG 08 | Bloodsport (Спорт)</option>
-                  <option value="default" data-i18n="scout_default">Классический Scout</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div class="controls-guide">
-            <h4 data-i18n="controls_title">УПРАВЛЕНИЕ:</h4>
-            <div class="controls-grid">
-              <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> <span data-i18n="ctrl_movement">Движение</span></div>
-              <div><kbd>ЛКМ</kbd> <span data-i18n="ctrl_fire">Стрельба / Удар</span></div>
-              <div><kbd>ПКМ</kbd> <span data-i18n="ctrl_zoom">Зум / Прицел ADS</span></div>
-              <div><kbd>R</kbd> <span data-i18n="ctrl_reload">Перезарядка</span></div>
-              <div><kbd>ПРОБЕЛ</kbd> <span data-i18n="ctrl_jump">Прыжок / Респавн</span></div>
-              <div><kbd>CTRL</kbd> <span data-i18n="ctrl_crouch">Присесть (кучность ↑)</span></div>
-              <div><kbd>1</kbd>–<kbd>5</kbd> <span data-i18n="ctrl_weapons">Оружие (5 = C4)</span></div>
-              <div><kbd>B</kbd> <span data-i18n="ctrl_buy">Магазин оружия</span></div>
-              <div><kbd>TAB</kbd> <span data-i18n="ctrl_score">Таблица счета</span></div>
+            <div class="profile-xp-bar">
+              <div class="profile-xp-fill" style="width: 82%;"></div>
             </div>
           </div>
         </div>
       </div>
+    </header>
 
-      <!-- Right Side: Operative Badge Card (3D Model renders in background) -->
-      <div class="lobby-operative-showcase">
+    <!-- Main Panorama Content Panels -->
+    <main class="panorama-viewport">
+      <!-- 3D Operative Floating Status Badge & 360° Drag Hint -->
+      <div class="operative-hud-anchor">
         <div id="lobby-op-badge" class="operative-badge">
           <div class="op-team-tag" id="lobby-op-team" data-i18n="badge_team_ct">СПЕЦНАЗ (CT)</div>
           <div class="op-title" id="lobby-op-title">SAS OPERATIVE</div>
           <div class="op-weapon-tag" id="lobby-op-weapon" data-i18n="badge_wpn_m4">ВООРУЖЕНИЕ: M4A1 CARBINE</div>
           <div class="op-status-tag" data-i18n="badge_status">STATUS: READY FOR COMBAT</div>
+          <div class="op-drag-hint">🖱️ Зажмите ЛКМ и вращайте оперативника на 360°</div>
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <!-- TAB 1: ИГРАТЬ (PLAY)                                             -->
+      <!-- ================================================================ -->
+      <section class="panorama-pane active" id="pane-play">
+        <div class="pane-content-wrapper play-layout">
+          <!-- Game Mode Selector Bar -->
+          <div class="mode-selector-strip">
+            <button type="button" class="mode-pill-btn active" data-mode="defusal">
+              <span class="mode-icon">💣</span>
+              <div class="mode-text">
+                <span class="mode-title" data-i18n="mode_defusal">СОРЕВНОВАТЕЛЬНЫЙ 5x5</span>
+                <span class="mode-desc">Закладка бомбы C4 • 1 vs 5 Ботов</span>
+              </div>
+            </button>
+            <button type="button" class="mode-pill-btn" data-mode="deathmatch">
+              <span class="mode-icon">💀</span>
+              <div class="mode-text">
+                <span class="mode-title" data-i18n="mode_dm">БОЙ НАСМЕРТЬ (DM)</span>
+                <span class="mode-desc">Быстрый респавн • Бесконечный бой</span>
+              </div>
+            </button>
+            <button type="button" class="mode-pill-btn" data-mode="sniper">
+              <span class="mode-icon">🎯</span>
+              <div class="mode-text">
+                <span class="mode-title" data-i18n="mode_sniper">AWP & НОЖИ</span>
+                <span class="mode-desc">Снайперская дуэль • One Shot Kill</span>
+              </div>
+            </button>
+            <button type="button" class="mode-pill-btn" data-mode="aimbotz">
+              <span class="mode-icon">🎪</span>
+              <div class="mode-text">
+                <span class="mode-title" data-i18n="mode_aim">ТРЕНИРОВКА AIM BOTZ</span>
+                <span class="mode-desc">Отработка хедшотов и спрея</span>
+              </div>
+            </button>
+          </div>
+
+          <!-- Maps Carousel / Grid with 3D Tilt Effect -->
+          <div class="section-sub-header">
+            <h2 data-i18n="map_selection_title">ВЫБОР КАРТЫ (SELECT MAP)</h2>
+            <span class="sub-hint">Карточки поддерживают 3D-наклон при наведении курсора</span>
+          </div>
+
+          <div class="maps-grid" id="maps-selection-grid">
+            <!-- Map Card 1: Dust 2 -->
+            <div class="map-card active" data-map="dust2">
+              <div class="map-card-inner">
+                <div class="map-card-badge">DE</div>
+                <div class="map-preview map-bg-dust2"></div>
+                <div class="map-overlay-glow"></div>
+                <div class="map-card-info">
+                  <div class="map-name">DE_DUST2</div>
+                  <div class="map-subtitle" data-i18n="map_dust2_sub">Легендарный Даст 2 • Пустынный базар</div>
+                  <div class="map-tags">
+                    <span class="tag-pill">Соревновательный</span>
+                    <span class="tag-pill">Популярно ★★★★★</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Map Card 2: Inferno -->
+            <div class="map-card" data-map="inferno">
+              <div class="map-card-inner">
+                <div class="map-card-badge">DE</div>
+                <div class="map-preview map-bg-inferno"></div>
+                <div class="map-overlay-glow"></div>
+                <div class="map-card-info">
+                  <div class="map-name">DE_INFERNO</div>
+                  <div class="map-subtitle" data-i18n="map_inferno_sub">Итальянский городок • Ночная операция</div>
+                  <div class="map-tags">
+                    <span class="tag-pill">Банан и Апартаменты</span>
+                    <span class="tag-pill">Тактика ★★★★★</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Map Card 3: Assault -->
+            <div class="map-card" data-map="assault">
+              <div class="map-card-inner">
+                <div class="map-card-badge">CS</div>
+                <div class="map-preview map-bg-assault"></div>
+                <div class="map-overlay-glow"></div>
+                <div class="map-card-info">
+                  <div class="map-name">CS_ASSAULT</div>
+                  <div class="map-subtitle" data-i18n="map_assault_sub">Штурм склада • Вентиляция и крыша</div>
+                  <div class="map-tags">
+                    <span class="tag-pill">Осада Склада</span>
+                    <span class="tag-pill">Классика 1.6 ★★★★</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Map Card 4: fy_pool_day -->
+            <div class="map-card" data-map="pool_day">
+              <div class="map-card-inner">
+                <div class="map-card-badge">FY</div>
+                <div class="map-preview map-bg-poolday"></div>
+                <div class="map-overlay-glow"></div>
+                <div class="map-card-info">
+                  <div class="map-name">FY_POOL_DAY</div>
+                  <div class="map-subtitle" data-i18n="map_poolday_sub">Бассейн с разбросанным оружием</div>
+                  <div class="map-tags">
+                    <span class="tag-pill">Fast Action</span>
+                    <span class="tag-pill">DM Резня ★★★★★</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Map Card 5: awp_india -->
+            <div class="map-card" data-map="awp_india">
+              <div class="map-card-inner">
+                <div class="map-card-badge">AWP</div>
+                <div class="map-preview map-bg-india"></div>
+                <div class="map-overlay-glow"></div>
+                <div class="map-card-info">
+                  <div class="map-name">AWP_INDIA</div>
+                  <div class="map-subtitle" data-i18n="map_india_sub">Снайперский храм • Только зум и нож</div>
+                  <div class="map-tags">
+                    <span class="tag-pill">Снайперы</span>
+                    <span class="tag-pill">One Shot ★★★★★</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Map Card 6: de_nuke -->
+            <div class="map-card" data-map="nuke">
+              <div class="map-card-inner">
+                <div class="map-card-badge">DE</div>
+                <div class="map-preview map-bg-nuke"></div>
+                <div class="map-overlay-glow"></div>
+                <div class="map-card-info">
+                  <div class="map-name">DE_NUKE</div>
+                  <div class="map-subtitle" data-i18n="map_nuke_sub">Атомная электростанция • Вент и Рампа</div>
+                  <div class="map-tags">
+                    <span class="tag-pill">Вертикальный бой</span>
+                    <span class="tag-pill">Киберспорт ★★★★★</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Map Card 7: de_beach -->
+            <div class="map-card" data-map="beach">
+              <div class="map-card-inner">
+                <div class="map-card-badge">DE</div>
+                <div class="map-preview map-bg-beach"></div>
+                <div class="map-overlay-glow"></div>
+                <div class="map-card-info">
+                  <div class="map-name">DE_BEACH</div>
+                  <div class="map-subtitle" data-i18n="map_beach_sub">Тропический курорт • Океан и пальмы</div>
+                  <div class="map-tags">
+                    <span class="tag-pill">Курорт</span>
+                    <span class="tag-pill">Вода 3D ★★★★</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Map Card 8: de_minecraft -->
+            <div class="map-card" data-map="minecraft">
+              <div class="map-card-inner">
+                <div class="map-card-badge">DE</div>
+                <div class="map-preview map-bg-minecraft"></div>
+                <div class="map-overlay-glow"></div>
+                <div class="map-card-info">
+                  <div class="map-name">DE_MINECRAFT</div>
+                  <div class="map-subtitle" data-i18n="map_minecraft_sub">Кубический мир • Дерево, Трава, Камень</div>
+                  <div class="map-tags">
+                    <span class="tag-pill">Воксели</span>
+                    <span class="tag-pill">Fun Mode ★★★★★</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Play Panel: Factions & Match Parameters & Big Start Button -->
+          <div class="play-footer-strip">
+            <!-- Team & Factions Switcher -->
+            <div class="faction-picker-box">
+              <span class="panel-section-title" data-i18n="faction_title">ВЫБОР ОТРЯДА:</span>
+              <div class="faction-cards-row">
+                <button type="button" id="btn-join-ct" class="faction-card ct-faction active">
+                  <div class="faction-icon">👮</div>
+                  <div class="faction-meta">
+                    <div class="faction-name" data-i18n="team_ct_title">COUNTER-TERRORISTS</div>
+                    <div class="faction-sub">SAS • GSG-9 • GIGN • SEAL</div>
+                  </div>
+                </button>
+                <button type="button" id="btn-join-t" class="faction-card t-faction">
+                  <div class="faction-icon">🥷</div>
+                  <div class="faction-meta">
+                    <div class="faction-name" data-i18n="team_t_title">TERRORISTS</div>
+                    <div class="faction-sub">Phoenix • Elite 1337 • Arctic</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <!-- Match Settings Mini Strip -->
+            <div class="match-quick-params">
+              <div class="param-group">
+                <label for="select-difficulty" data-i18n="setting_difficulty">Сложность ботов:</label>
+                <select id="select-difficulty">
+                  <option value="easy" data-i18n="diff_easy">Легко (Easy)</option>
+                  <option value="normal" selected data-i18n="diff_normal">Средне (Normal)</option>
+                  <option value="hard" data-i18n="diff_hard">Профи (CS Veteran)</option>
+                </select>
+              </div>
+
+              <div class="param-group">
+                <label for="select-bot-count" data-i18n="setting_enemies">Формат матча:</label>
+                <select id="select-bot-count">
+                  <option value="1">1 vs 1 (Дуэль)</option>
+                  <option value="3">1 vs 3 (Малый бой)</option>
+                  <option value="5" selected>1 vs 5 (Классика CS)</option>
+                  <option value="9">5 vs 5 (Командный)</option>
+                </select>
+              </div>
+
+              <div class="param-group">
+                <label for="select-start-money" data-i18n="setting_start_money">Стартовые деньги:</label>
+                <select id="select-start-money">
+                  <option value="800">$800 (Пистолетный)</option>
+                  <option value="3500">$3,500 (Эко раунд)</option>
+                  <option value="8000">$8,000 (Закуп винтовок)</option>
+                  <option value="16000" selected>$16,000 (Максимум CS)</option>
+                </select>
+              </div>
+
+              <div class="param-group">
+                <label for="select-round-time" data-i18n="setting_round_time">Время раунда:</label>
+                <select id="select-round-time">
+                  <option value="60">1:00 (Быстрый)</option>
+                  <option value="105">1:45 (Турнирный)</option>
+                  <option value="120" selected>2:00 (Стандарт)</option>
+                  <option value="180">3:00 (Длинный)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Massive Action Buttons -->
+            <div class="play-action-cluster">
+              <button type="button" id="btn-start-game" class="cs-btn-primary panorama-play-btn">
+                <span class="play-icon">▶</span>
+                <span class="play-text" data-i18n="play_btn">В БОЙ (PLAY)</span>
+              </button>
+              <button type="button" id="btn-restart-game" class="cs-btn-secondary panorama-restart-btn hidden" data-i18n="restart_btn">
+                ↺ НАЧАТЬ ЗАНОВО
+              </button>
+              <!-- Large Prominent Download App / APK Button -->
+              <button type="button" id="btn-download-app-center" class="cs-btn-download-app" title="Скачать или установить игру на ПК / Android">
+                <span class="dl-icon">📲</span>
+                <div class="dl-text-wrap">
+                  <span class="dl-text">СКАЧАТЬ ПРИЛОЖЕНИЕ / APK</span>
+                  <span class="dl-badge">DESKTOP APP • ANDROID • PWA</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- TAB 2: ОРУЖЕЙНАЯ И ИНВЕНТАРЬ (LOADOUT)                           -->
+      <!-- ================================================================ -->
+      <section class="panorama-pane" id="pane-loadout">
+        <div class="pane-content-wrapper loadout-layout">
+          <!-- Left: Weapon Selector Grid & Categories -->
+          <div class="loadout-catalog-panel">
+            <!-- Weapon Category Filters -->
+            <div class="loadout-category-tabs">
+              <button type="button" class="loadout-cat-btn active" data-cat="all">Все арсеналы</button>
+              <button type="button" class="loadout-cat-btn" data-cat="rifles">Винтовки</button>
+              <button type="button" class="loadout-cat-btn" data-cat="snipers">Снайперки</button>
+              <button type="button" class="loadout-cat-btn" data-cat="pistols">Пистолеты</button>
+              <button type="button" class="loadout-cat-btn" data-cat="knives">Ножи</button>
+            </div>
+
+            <!-- Weapons Cards Grid -->
+            <div class="loadout-weapon-cards" id="loadout-weapon-grid">
+              <!-- AK-47 Card -->
+              <div class="loadout-card active" data-weapon="ak47">
+                <div class="lc-slot-badge">ВИНТОВКА</div>
+                <div class="lc-img-preview lc-ak47"></div>
+                <div class="lc-info">
+                  <div class="lc-name">AK-47</div>
+                  <div class="lc-skin">Asiimov / Classic Wood</div>
+                  <div class="lc-price">$2,700 • One-tap Headshot</div>
+                </div>
+              </div>
+
+              <!-- M4A1 Card -->
+              <div class="loadout-card" data-weapon="m4a1">
+                <div class="lc-slot-badge">ВИНТОВКА</div>
+                <div class="lc-img-preview lc-m4a1"></div>
+                <div class="lc-info">
+                  <div class="lc-name">M4A1-S</div>
+                  <div class="lc-skin">Howl / Maverick Classic</div>
+                  <div class="lc-price">$3,100 • Точный лазер</div>
+                </div>
+              </div>
+
+              <!-- AWP Card -->
+              <div class="loadout-card" data-weapon="awp">
+                <div class="lc-slot-badge">СНАЙПЕРКА</div>
+                <div class="lc-img-preview lc-awp"></div>
+                <div class="lc-info">
+                  <div class="lc-name">AWP MAGNUM</div>
+                  <div class="lc-skin">Dragon Lore / Arctic</div>
+                  <div class="lc-price">$4,750 • 115 Урона в тело</div>
+                </div>
+              </div>
+
+              <!-- Desert Eagle Card -->
+              <div class="loadout-card" data-weapon="deagle">
+                <div class="lc-slot-badge">ПИСТОЛЕТ</div>
+                <div class="lc-img-preview lc-deagle"></div>
+                <div class="lc-info">
+                  <div class="lc-name">DESERT EAGLE</div>
+                  <div class="lc-skin">Printstream / Classic Steel</div>
+                  <div class="lc-price">$700 • .50 Action Express</div>
+                </div>
+              </div>
+
+              <!-- SSG 08 Scout Card -->
+              <div class="loadout-card" data-weapon="scout">
+                <div class="lc-slot-badge">СНАЙПЕРКА</div>
+                <div class="lc-img-preview lc-scout"></div>
+                <div class="lc-info">
+                  <div class="lc-name">SSG 08 SCOUT</div>
+                  <div class="lc-skin">Bloodsport / Carbon</div>
+                  <div class="lc-price">$1,700 • Высокая скорость</div>
+                </div>
+              </div>
+
+              <!-- Glock-18 Card -->
+              <div class="loadout-card" data-weapon="glock">
+                <div class="lc-slot-badge">ПИСТОЛЕТ</div>
+                <div class="lc-img-preview lc-glock"></div>
+                <div class="lc-info">
+                  <div class="lc-name">GLOCK-18</div>
+                  <div class="lc-skin">Water Elemental / 9mm</div>
+                  <div class="lc-price">$400 • Очередь 3 патрона</div>
+                </div>
+              </div>
+
+              <!-- USP-S Card -->
+              <div class="loadout-card" data-weapon="usp">
+                <div class="lc-slot-badge">ПИСТОЛЕТ</div>
+                <div class="lc-img-preview lc-usp"></div>
+                <div class="lc-info">
+                  <div class="lc-name">USP-S TACTICAL</div>
+                  <div class="lc-skin">Kill Confirmed / Silenced</div>
+                  <div class="lc-price">$500 • Бесшумный .45</div>
+                </div>
+              </div>
+
+              <!-- Karambit Knife Card -->
+              <div class="loadout-card" data-weapon="knife">
+                <div class="lc-slot-badge">НОЖ</div>
+                <div class="lc-img-preview lc-knife"></div>
+                <div class="lc-info">
+                  <div class="lc-name">KARAMBIT KNIFE</div>
+                  <div class="lc-skin">Doppler Phase 2 & Fade</div>
+                  <div class="lc-price">Индивидуальный скин</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Weapon 3D Inspect Stage & Telemetry Metrics -->
+          <div class="loadout-inspect-panel">
+            <div class="inspect-header">
+              <div class="inspect-weapon-title-group">
+                <span class="inspect-weapon-type" id="inspect-category-label">ШТУРМОВАЯ ВИНТОВКА</span>
+                <h3 class="inspect-weapon-name" id="inspect-title">AK-47 | ASIIMOV</h3>
+              </div>
+              <div class="inspect-skin-picker">
+                <label for="inspect-skin-select">Скин оружия:</label>
+                <select id="inspect-skin-select">
+                  <option value="asiimov">⚡ Asiimov (Азимов)</option>
+                  <option value="howl">🐺 Howl (Вой)</option>
+                  <option value="dragon_lore">🐉 Dragon Lore (Дракон)</option>
+                  <option value="printstream">✨ Printstream (Перламутр)</option>
+                  <option value="doppler">🔮 Doppler Phase 2 & Fade</option>
+                  <option value="bloodsport">🏎️ Bloodsport (Спорт)</option>
+                  <option value="default">Классический CS 1.6</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Inspect Stage Center Display -->
+            <div class="inspect-viewport-box">
+              <div class="inspect-glow-circle"></div>
+              <div class="inspect-weapon-banner" id="inspect-banner-preview">AK-47</div>
+              <div class="inspect-hint">Оперативник в 3D лобби экипирует выбранное оружие в реальном времени</div>
+            </div>
+
+            <!-- Telemetry Stats Meters -->
+            <div class="inspect-stats-group">
+              <h4 class="stats-section-title">БОЕВЫЕ ХАРАКТЕРИСТИКИ ОРУЖИЯ (TELEMETRY)</h4>
+
+              <!-- Damage Metric -->
+              <div class="stat-bar-row">
+                <div class="stat-labels">
+                  <span class="stat-name">УРОН (DAMAGE)</span>
+                  <span class="stat-val" id="stat-val-damage">36 HP (В тело) / 140 HP (Хедшот)</span>
+                </div>
+                <div class="stat-track">
+                  <div class="stat-fill fill-damage" id="stat-fill-damage" style="width: 72%;"></div>
+                </div>
+              </div>
+
+              <!-- Fire Rate Metric -->
+              <div class="stat-bar-row">
+                <div class="stat-labels">
+                  <span class="stat-name">СКОРОСТРЕЛЬНОСТЬ (FIRE RATE)</span>
+                  <span class="stat-val" id="stat-val-firerate">600 RPM</span>
+                </div>
+                <div class="stat-track">
+                  <div class="stat-fill fill-firerate" id="stat-fill-firerate" style="width: 65%;"></div>
+                </div>
+              </div>
+
+              <!-- Recoil Control Metric -->
+              <div class="stat-bar-row">
+                <div class="stat-labels">
+                  <span class="stat-name">КОНТРОЛЬ ОТДАЧИ (RECOIL CONTROL)</span>
+                  <span class="stat-val" id="stat-val-recoil">68% • Паттерн "Семёрка"</span>
+                </div>
+                <div class="stat-track">
+                  <div class="stat-fill fill-recoil" id="stat-fill-recoil" style="width: 68%;"></div>
+                </div>
+              </div>
+
+              <!-- Armor Penetration Metric -->
+              <div class="stat-bar-row">
+                <div class="stat-labels">
+                  <span class="stat-name">БРОНЕПРОБИВАЕМОСТЬ (ARMOR PEN)</span>
+                  <span class="stat-val" id="stat-val-armor">77.5%</span>
+                </div>
+                <div class="stat-track">
+                  <div class="stat-fill fill-armor" id="stat-fill-armor" style="width: 77%;"></div>
+                </div>
+              </div>
+
+              <!-- Movement Speed Metric -->
+              <div class="stat-bar-row">
+                <div class="stat-labels">
+                  <span class="stat-name">СКОРОСТЬ БЕГА (MOBILITY)</span>
+                  <span class="stat-val" id="stat-val-speed">215 Units/sec</span>
+                </div>
+                <div class="stat-track">
+                  <div class="stat-fill fill-speed" id="stat-fill-speed" style="width: 86%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Inspect Action Buttons -->
+            <div class="inspect-action-bar">
+              <button type="button" id="btn-equip-loadout" class="cs-btn-primary inspect-equip-btn">
+                ✓ ЭКИПИРОВАТЬ В ЛОББИ
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- TAB 3: СЕРВЕРЫ (SERVER BROWSER)                                  -->
+      <!-- ================================================================ -->
+      <section class="panorama-pane" id="pane-servers">
+        <div class="pane-content-wrapper servers-layout">
+          <div class="servers-header-strip">
+            <div class="servers-title-wrap">
+              <h2>СПИСОК ВЫДЕЛЕННЫХ СЕРВЕРОВ (DEDICATED SERVERS)</h2>
+              <span class="servers-status-text">VAC SECURED • 128 TICK • НИЗКИЙ ПИНГ</span>
+            </div>
+            <button type="button" id="btn-refresh-servers" class="cs-btn-secondary server-refresh-btn">
+              🔄 ОБНОВИТЬ СПИСОК
+            </button>
+          </div>
+
+          <div class="servers-table-container">
+            <table class="servers-table">
+              <thead>
+                <tr>
+                  <th>VAC</th>
+                  <th>Название сервера</th>
+                  <th>Карта</th>
+                  <th>Режим</th>
+                  <th>Игроки</th>
+                  <th>Пинг</th>
+                  <th>Действие</th>
+                </tr>
+              </thead>
+              <tbody id="servers-table-body">
+                <tr data-map="dust2" data-mode="defusal">
+                  <td><span class="vac-badge">🛡️ VAC</span></td>
+                  <td><span class="srv-name">CS:GO Classic Public 24/7 [Tick 128] #1</span></td>
+                  <td><span class="srv-map">de_dust2</span></td>
+                  <td>Соревновательный 5x5</td>
+                  <td><span class="srv-players">19 / 20</span></td>
+                  <td><span class="srv-ping ping-good">12 ms</span></td>
+                  <td><button type="button" class="btn-connect-server cs-btn-primary">ПОДКЛЮЧИТЬСЯ</button></td>
+                </tr>
+                <tr data-map="inferno" data-mode="defusal">
+                  <td><span class="vac-badge">🛡️ VAC</span></td>
+                  <td><span class="srv-name">Cybersport Competitive Inferno Night #2</span></td>
+                  <td><span class="srv-map">de_inferno</span></td>
+                  <td>5v5 Ranked Match</td>
+                  <td><span class="srv-players">9 / 10</span></td>
+                  <td><span class="srv-ping ping-good">18 ms</span></td>
+                  <td><button type="button" class="btn-connect-server cs-btn-primary">ПОДКЛЮЧИТЬСЯ</button></td>
+                </tr>
+                <tr data-map="awp_india" data-mode="sniper">
+                  <td><span class="vac-badge">🛡️ VAC</span></td>
+                  <td><span class="srv-name">AWP India Fast Respawns Only Headshots</span></td>
+                  <td><span class="srv-map">awp_india</span></td>
+                  <td>AWP Дуэль</td>
+                  <td><span class="srv-players">15 / 16</span></td>
+                  <td><span class="srv-ping ping-good">15 ms</span></td>
+                  <td><button type="button" class="btn-connect-server cs-btn-primary">ПОДКЛЮЧИТЬСЯ</button></td>
+                </tr>
+                <tr data-map="pool_day" data-mode="deathmatch">
+                  <td><span class="vac-badge">🛡️ VAC</span></td>
+                  <td><span class="srv-name">Fy_Pool_Day Fun & Meat DM Server #1</span></td>
+                  <td><span class="srv-map">fy_pool_day</span></td>
+                  <td>Бой насмерть (DM)</td>
+                  <td><span class="srv-players">23 / 24</span></td>
+                  <td><span class="srv-ping ping-good">22 ms</span></td>
+                  <td><button type="button" class="btn-connect-server cs-btn-primary">ПОДКЛЮЧИТЬСЯ</button></td>
+                </tr>
+                <tr data-map="assault" data-mode="defusal">
+                  <td><span class="vac-badge">🛡️ VAC</span></td>
+                  <td><span class="srv-name">CS 1.6 Nostalgia Assault Siege 24/7</span></td>
+                  <td><span class="srv-map">cs_assault</span></td>
+                  <td>Штурм склада</td>
+                  <td><span class="srv-players">17 / 20</span></td>
+                  <td><span class="srv-ping ping-mid">29 ms</span></td>
+                  <td><button type="button" class="btn-connect-server cs-btn-primary">ПОДКЛЮЧИТЬСЯ</button></td>
+                </tr>
+                <tr data-map="beach" data-mode="defusal">
+                  <td><span class="vac-badge">🛡️ VAC</span></td>
+                  <td><span class="srv-name">Beach Resort Oceanic Server 60FPS</span></td>
+                  <td><span class="srv-map">de_beach</span></td>
+                  <td>Тропики 5v5</td>
+                  <td><span class="srv-players">10 / 12</span></td>
+                  <td><span class="srv-ping ping-good">19 ms</span></td>
+                  <td><button type="button" class="btn-connect-server cs-btn-primary">ПОДКЛЮЧИТЬСЯ</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- TAB 4: СТАТИСТИКА И РАНГ (STATS)                                 -->
+      <!-- ================================================================ -->
+      <section class="panorama-pane" id="pane-stats">
+        <div class="pane-content-wrapper stats-layout">
+          <!-- Left: Rank & XP Dossier Card -->
+          <div class="stats-rank-card">
+            <div class="rank-card-header">
+              <span class="dossier-tag">ЛИЧНОЕ ДЕЛО ИГРОКА</span>
+              <div class="dossier-id">ID: STEAM_0:1:33748291</div>
+            </div>
+
+            <div class="rank-showcase-visual">
+              <div class="rank-glow-halo"></div>
+              <div class="rank-badge-icon-huge" id="stats-rank-icon">⭐</div>
+              <h2 class="rank-display-title" id="stats-rank-title">THE GLOBAL ELITE</h2>
+              <div class="rank-rating-elo">Рейтинг CS: <b>24,850</b> ELO</div>
+            </div>
+
+            <!-- Rank Hierarchy Switcher -->
+            <div class="rank-select-row">
+              <label for="select-player-rank">Выбрать звание для профиля:</label>
+              <select id="select-player-rank">
+                <option value="silver1">Silver I (Серебро 1)</option>
+                <option value="silver_elite">Silver Elite Master</option>
+                <option value="gold_nova">Gold Nova III</option>
+                <option value="master_guardian">Master Guardian Elite (Калаш)</option>
+                <option value="dmg">Distinguished Master Guardian (Беркут)</option>
+                <option value="supreme">Supreme First Master</option>
+                <option value="global" selected>The Global Elite (Всемирная Элита)</option>
+              </select>
+            </div>
+
+            <div class="xp-level-block">
+              <div class="xp-meta-row">
+                <span>Ранг профиля: <b>Уровень 28 (Майор)</b></span>
+                <span>4,320 / 5,000 XP</span>
+              </div>
+              <div class="xp-progress-track">
+                <div class="xp-progress-fill" style="width: 86%;"></div>
+              </div>
+              <div class="xp-boost-hint">Бонус опыта за раунд активен (+200 XP за победу)</div>
+            </div>
+          </div>
+
+          <!-- Right: Combat Telemetry Statistics Grid -->
+          <div class="stats-metrics-panel">
+            <h3 class="panel-section-title">БОЕВАЯ СТАТИСТИКА (COMBAT TELEMETRY)</h3>
+
+            <div class="metrics-counters-grid">
+              <!-- Counter 1: K/D Ratio -->
+              <div class="metric-counter-card">
+                <div class="metric-icon">⚔️</div>
+                <div class="metric-num-highlight" id="stat-kd-ratio">2.45</div>
+                <div class="metric-name">K/D RATIO (УБИЙСТВА / СМЕРТИ)</div>
+                <div class="metric-sub">1,482 фрагов • 604 смертей</div>
+              </div>
+
+              <!-- Counter 2: Headshot % -->
+              <div class="metric-counter-card">
+                <div class="metric-icon">🎯</div>
+                <div class="metric-num-highlight" id="stat-headshot-pct">58.4%</div>
+                <div class="metric-name">ПРОЦЕНТ В ГОЛОВУ (HEADSHOT %)</div>
+                <div class="metric-sub">865 выстрелов точно в голову</div>
+              </div>
+
+              <!-- Counter 3: Win Rate % -->
+              <div class="metric-counter-card">
+                <div class="metric-icon">🏆</div>
+                <div class="metric-num-highlight" id="stat-win-rate">68.2%</div>
+                <div class="metric-name">ПРОЦЕНТ ПОБЕД (WIN RATE)</div>
+                <div class="metric-sub">142 побед из 208 матчей</div>
+              </div>
+
+              <!-- Counter 4: Total Matches & MVPs -->
+              <div class="metric-counter-card">
+                <div class="metric-icon">🎖️</div>
+                <div class="metric-num-highlight">94</div>
+                <div class="metric-name">ЗВЕЗДЫ ЛУЧШЕГО ИГРОКА (MVP)</div>
+                <div class="metric-sub">45% от всех сыгранных матчей</div>
+              </div>
+
+              <!-- Counter 5: Bombs Planted -->
+              <div class="metric-counter-card">
+                <div class="metric-icon">💣</div>
+                <div class="metric-num-highlight">128</div>
+                <div class="metric-name">БОМБ УСТАНОВЛЕНО (PLANTED C4)</div>
+                <div class="metric-sub">74 успешных подрыва</div>
+              </div>
+
+              <!-- Counter 6: Bombs Defused -->
+              <div class="metric-counter-card">
+                <div class="metric-icon">✂️</div>
+                <div class="metric-num-highlight">62</div>
+                <div class="metric-name">БОМБ ОБЕЗВРЕЖЕНО (DEFUSED)</div>
+                <div class="metric-sub">С набором сапера (Defuse Kit)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- TAB 5: НАСТРОЙКИ (SETTINGS & LIVE CROSSHAIR GENERATOR)           -->
+      <!-- ================================================================ -->
+      <section class="panorama-pane" id="pane-settings">
+        <div class="pane-content-wrapper settings-layout">
+          <!-- Settings Sub-Navigation -->
+          <div class="settings-sub-tabs">
+            <button type="button" class="settings-sub-btn active" data-sub="crosshair">🎯 Генератор Прицела</button>
+            <button type="button" class="settings-sub-btn" data-sub="audio">🔊 Аудио и Звуки CS:GO</button>
+            <button type="button" class="settings-sub-btn" data-sub="controls">⌨️ Управление и Мышь</button>
+          </div>
+
+          <!-- Sub-pane 1: Live Crosshair Generator -->
+          <div class="settings-sub-pane active" id="subpane-crosshair">
+            <div class="crosshair-gen-grid">
+              <!-- Left: Interactive Target Preview Screen -->
+              <div class="crosshair-preview-stage">
+                <div class="preview-backdrop" id="ch-preview-box">
+                  <!-- Simulated 3D enemy target silhouette in background -->
+                  <div class="target-silhouette"></div>
+                  <!-- The live rendered crosshair element matching game style -->
+                  <div id="live-crosshair-preview" class="crosshair-green reticle-cs_classic">
+                    <div class="ch-part ch-top"></div>
+                    <div class="ch-part ch-bottom"></div>
+                    <div class="ch-part ch-left"></div>
+                    <div class="ch-part ch-right"></div>
+                    <div class="ch-dot"></div>
+                  </div>
+                </div>
+
+                <div class="crosshair-presets-bar">
+                  <span class="preset-label">Киберспортивные пресеты:</span>
+                  <button type="button" class="ch-preset-btn" data-preset="s1mple">s1mple</button>
+                  <button type="button" class="ch-preset-btn" data-preset="niko">NiKo</button>
+                  <button type="button" class="ch-preset-btn" data-preset="zywoo">ZywOo</button>
+                  <button type="button" class="ch-preset-btn" data-preset="monesy">m0NESY</button>
+                  <button type="button" class="ch-preset-btn" data-preset="cs16">CS 1.6 Classic</button>
+                </div>
+              </div>
+
+              <!-- Right: Crosshair Parameter Sliders -->
+              <div class="crosshair-controls-box">
+                <!-- Size Slider -->
+                <div class="ch-slider-row">
+                  <div class="slider-header">
+                    <span>Размер линий (Size):</span>
+                    <span id="ch-size-val">10px</span>
+                  </div>
+                  <input type="range" id="slider-ch-size" min="2" max="24" step="1" value="10">
+                </div>
+
+                <!-- Thickness Slider -->
+                <div class="ch-slider-row">
+                  <div class="slider-header">
+                    <span>Толщина линий (Thickness):</span>
+                    <span id="ch-thick-val">2px</span>
+                  </div>
+                  <input type="range" id="slider-ch-thick" min="1" max="6" step="1" value="2">
+                </div>
+
+                <!-- Gap Slider -->
+                <div class="ch-slider-row">
+                  <div class="slider-header">
+                    <span>Зазор между линиями (Gap):</span>
+                    <span id="ch-gap-val">4px</span>
+                  </div>
+                  <input type="range" id="slider-ch-gap" min="-4" max="18" step="1" value="4">
+                </div>
+
+                <!-- Color Palette -->
+                <div class="ch-color-picker-row">
+                  <span>Цвет прицела:</span>
+                  <div class="ch-colors-palette">
+                    <button type="button" class="color-chip chip-green active" data-color="#00ff44" title="Зелёный"></button>
+                    <button type="button" class="color-chip chip-cyan" data-color="#00e5ff" title="Голубой"></button>
+                    <button type="button" class="color-chip chip-red" data-color="#ff3344" title="Красный"></button>
+                    <button type="button" class="color-chip chip-yellow" data-color="#ffdd00" title="Жёлтый"></button>
+                    <button type="button" class="color-chip chip-white" data-color="#ffffff" title="Белый"></button>
+                    <button type="button" class="color-chip chip-purple" data-color="#e056fd" title="Неоновый фиолетовый"></button>
+                  </div>
+                </div>
+
+                <!-- Center Dot Checkbox -->
+                <div class="ch-checkbox-row">
+                  <label class="chk-label">
+                    <input type="checkbox" id="chk-ch-dot">
+                    <span>Центральная точка (Center Dot)</span>
+                  </label>
+                </div>
+
+                <!-- Reticle Style Dropdown -->
+                <div class="ch-slider-row">
+                  <div class="slider-header">
+                    <label for="select-reticle">Стиль прицела (Классика / Голограф / Mil-Dot):</label>
+                  </div>
+                  <select id="select-reticle">
+                    <option value="cs_classic" selected>➕ CS Classic (Динамический с разбросом)</option>
+                    <option value="red_dot">🔴 Red Dot (Коллиматорная точка)</option>
+                    <option value="holographic">⭕ EOTech (Голографический круг)</option>
+                    <option value="tactical_cross">🟢 Tactical Cross (Тактический крест)</option>
+                    <option value="mil_dot">🎯 Mil-Dot (Снайперский)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-pane 2: Audio Mixer -->
+          <div class="settings-sub-pane" id="subpane-audio">
+            <div class="audio-mixer-settings-grid">
+              <div class="audio-mixer-top-bar">
+                <h3>🔊 МНОГОКАНАЛЬНЫЙ МИКШЕР ЗВУКА CS:GO / CS2</h3>
+                <button type="button" id="btn-open-soundpack" class="cs-btn-secondary">
+                  🎵 МЕНЕДЖЕР ЗВУКОВ (SOUND PACK)
+                </button>
+              </div>
+
+              <div class="audio-sliders-grid">
+                <div class="setting-item">
+                  <label for="range-volume">Общая громкость (Master):</label>
+                  <input type="range" id="range-volume" min="0" max="1.0" step="0.05" value="0.7">
+                  <span id="vol-val">70%</span>
+                </div>
+                <div class="setting-item">
+                  <label for="range-vol-weapons">Выстрелы и Оружие:</label>
+                  <input type="range" id="range-vol-weapons" min="0" max="1.0" step="0.05" value="0.85">
+                  <span id="vol-weapons-val">85%</span>
+                </div>
+                <div class="setting-item">
+                  <label for="range-vol-footsteps">Шаги (Звуки передвижения):</label>
+                  <input type="range" id="range-vol-footsteps" min="0" max="1.0" step="0.05" value="0.90">
+                  <span id="vol-footsteps-val">90%</span>
+                </div>
+                <div class="setting-item">
+                  <label for="range-vol-effects">Попадания (Dink/Kevlar) и C4:</label>
+                  <input type="range" id="range-vol-effects" min="0" max="1.0" step="0.05" value="0.85">
+                  <span id="vol-effects-val">85%</span>
+                </div>
+                <div class="setting-item">
+                  <label for="range-vol-voice">Радиокоманды и Голос:</label>
+                  <input type="range" id="range-vol-voice" min="0" max="1.0" step="0.05" value="0.80">
+                  <span id="vol-voice-val">80%</span>
+                </div>
+                <div class="setting-item checkbox-setting-item">
+                  <label for="chk-spatial-3d" class="chk-label">
+                    <input type="checkbox" id="chk-spatial-3d" checked>
+                    <span>3D HRTF Пространственный звук (позиционирование 360°)</span>
+                  </label>
+                </div>
+                <div class="setting-item checkbox-setting-item">
+                  <label for="chk-reverb" class="chk-label">
+                    <input type="checkbox" id="chk-reverb" checked>
+                    <span>Реверберация помещений и открытых зон</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-pane 3: Controls & Mouse -->
+          <div class="settings-sub-pane" id="subpane-controls">
+            <div class="controls-settings-grid">
+              <div class="setting-item">
+                <label for="range-sensitivity">Чувствительность мыши (Sens):</label>
+                <input type="range" id="range-sensitivity" min="0.5" max="3.0" step="0.1" value="1.2">
+                <span id="sens-val">1.2</span>
+              </div>
+
+              <!-- Mobile APK / Touch Controls Switch -->
+              <div class="setting-item checkbox-setting-item">
+                <label for="chk-touch-controls" class="chk-label">
+                  <input type="checkbox" id="chk-touch-controls">
+                  <span data-i18n="setting_touch_controls">📱 Сенсорное управление на экране (Мобильный режим / Android APK)</span>
+                </label>
+              </div>
+
+              <!-- Controls Guide -->
+              <div class="controls-guide panorama-guide">
+                <h4 data-i18n="controls_title">УПРАВЛЕНИЕ В БОЮ:</h4>
+                <div class="controls-grid">
+                  <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> <span>Движение</span></div>
+                  <div><kbd>ЛКМ</kbd> <span>Стрельба / Удар ножом</span></div>
+                  <div><kbd>ПКМ</kbd> <span>Прицел AWP / Зум</span></div>
+                  <div><kbd>R</kbd> <span>Перезарядка</span></div>
+                  <div><kbd>SHIFT</kbd> <span>Тихий шаг (Без звука!)</span></div>
+                  <div><kbd>ПРОБЕЛ</kbd> <span>Прыжок</span></div>
+                  <div><kbd>CTRL</kbd> <span>Присесть (кучность ↑)</span></div>
+                  <div><kbd>1</kbd>–<kbd>5</kbd> <span>Оружие (5 = Бомба C4)</span></div>
+                  <div><kbd>B</kbd> <span>Магазин оружия (Buy Menu)</span></div>
+                  <div><kbd>TAB</kbd> <span>Таблица счета матча</span></div>
+                  <div><kbd>E</kbd> <span>Закладка / Разминирование C4</span></div>
+                  <div><kbd>H</kbd> <span>Быстрая смена прицела</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Tactical Match Loading Screen with Progress Bar & Tips -->
+  <div id="loading-screen" class="hidden">
+    <div class="loading-backdrop"></div>
+    <div class="loading-vignette"></div>
+    <div class="loading-scanlines"></div>
+
+    <div class="loading-container">
+      <!-- Loading Header & Map Name -->
+      <div class="loading-header">
+        <div class="loading-brand">COUNTER-STRIKE <span>2</span></div>
+        <h1 class="loading-map-title" id="loading-map-name">DE_DUST2</h1>
+        <div class="loading-map-desc" id="loading-map-desc">РЕЖИМ: СОРЕВНОВАТЕЛЬНЫЙ 5x5 • TICKRATE 128 • VAC SECURED</div>
+      </div>
+
+      <!-- Loading Progress Bar & Percentage -->
+      <div class="loading-progress-box">
+        <div class="loading-progress-meta">
+          <span class="loading-status-text" id="loading-step-text">Загрузка 3D-геометрии карты...</span>
+          <span class="loading-pct-text" id="loading-pct">0%</span>
+        </div>
+        <div class="loading-bar-track">
+          <div class="loading-bar-fill" id="loading-bar-fill"></div>
+        </div>
+      </div>
+
+      <!-- Tactical Tips Carousel -->
+      <div class="loading-tips-box">
+        <div class="tip-icon">💡</div>
+        <div class="tip-content">
+          <span class="tip-label">ТАКТИЧЕСКИЙ СОВЕТ:</span>
+          <span class="tip-text" id="loading-tip-text">Удерживайте [SHIFT] во время ходьбы — шаги спецназа становятся абсолютно бесшумными!</span>
         </div>
       </div>
     </div>
@@ -482,6 +1416,196 @@
     </div>
   </div>
 
+  <!-- CS:GO / CS2 Custom Sound Pack Loader Modal -->
+  <div id="soundpack-modal" class="hidden">
+    <div class="sp-container">
+      <div class="sp-header">
+        <div class="sp-title-group">
+          <div class="sp-title" data-i18n="soundpack_title">МЕНЕДЖЕР ЗВУКОВ CS:GO / CS2 (SOUND PACK)</div>
+          <div class="sp-subtitle">Web Audio API • 0ms Latency • Drag-and-Drop .wav/.mp3 Loader • IndexedDB Storage</div>
+        </div>
+        <button type="button" id="btn-close-soundpack" class="sp-close-btn">&times;</button>
+      </div>
+
+      <!-- Master Drag-and-Drop Zone -->
+      <div id="sp-dropzone" class="sp-dropzone">
+        <div class="drop-icon">📥</div>
+        <div class="drop-main-text" data-i18n="soundpack_dropzone">
+          Перетащите сюда любые .wav / .mp3 файлы из CS:GO для мгновенной замены звуков
+        </div>
+        <div class="drop-hint">Поддерживаются: ak47.wav, m4a1.wav, awp.mp3, headshot.wav, dink.wav, footstep.wav, c4_beep.wav, etc.</div>
+        <input type="file" id="sp-batch-file-input" multiple accept=".wav,.mp3,.ogg" class="hidden">
+        <button type="button" id="btn-sp-browse-batch" class="cs-btn-secondary sp-browse-btn">📁 Выбрать звуковые файлы с диска</button>
+      </div>
+
+      <!-- Category Filter Tabs -->
+      <div class="sp-tabs">
+        <button type="button" class="sp-tab-btn active" data-cat="all">Все звуки</button>
+        <button type="button" class="sp-tab-btn" data-cat="weapons">Огнестрельное оружие</button>
+        <button type="button" class="sp-tab-btn" data-cat="knife">Нож</button>
+        <button type="button" class="sp-tab-btn" data-cat="handling">Перезарядка</button>
+        <button type="button" class="sp-tab-btn" data-cat="hits">Попадания (Dink/Kevlar)</button>
+        <button type="button" class="sp-tab-btn" data-cat="footsteps">Шаги</button>
+        <button type="button" class="sp-tab-btn" data-cat="c4_grenades">C4 и Гранаты</button>
+        <button type="button" class="sp-tab-btn" data-cat="voice">Голос и Радио</button>
+      </div>
+
+      <!-- Sound Slots Grid -->
+      <div class="sp-slots-container" id="sp-slots-grid">
+        <!-- Generated dynamically by CSAudioEngine / UI script -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="sp-footer">
+        <button type="button" id="btn-sp-reset-all" class="cs-btn-secondary sp-danger-btn" data-i18n="soundpack_reset_all">
+          ↺ Сбросить все звуки на эталонный CS:GO
+        </button>
+        <button type="button" id="btn-sp-close-footer" class="cs-btn-primary" data-i18n="soundpack_close">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Standalone Desktop App & Android APK Download Modal -->
+  <!-- Standalone Desktop App & Android APK Download Modal -->
+  <div id="app-download-modal" class="hidden">
+    <div class="dl-modal-container">
+      <div class="dl-modal-header">
+        <div class="dl-modal-title-group">
+          <div class="dl-modal-title">📲 УСТАНОВКА ИГРЫ И ССЫЛКА ДЛЯ ДРУЗЕЙ В TELEGRAM</div>
+          <div class="dl-modal-subtitle">Играй на любом устройстве без скачивания гигабайтов • Android • iOS • Windows • macOS</div>
+        </div>
+        <button type="button" id="btn-close-app-modal" class="sp-close-btn">&times;</button>
+      </div>
+
+      <!-- Quick 1-Click PWA Install Hero Banner -->
+      <div class="dl-hero-banner">
+        <div class="dl-hero-info">
+          <div class="dl-hero-badge">⚡️ БЕЗ ПРЕДУПРЕЖДЕНИЙ БЕЗОПАСНОСТИ • МГНОВЕННО</div>
+          <div class="dl-hero-title">Установка приложения Counter-Strike 1.6 в 1 клик</div>
+          <div class="dl-hero-desc">
+            Устанавливает официальную иконку игры на экран телефона (Android / iOS) или Рабочий стол ПК. Заменяет тяжелый APK, запускается без рамок браузера на полный экран и работает оффлайн на 60+ FPS!
+          </div>
+        </div>
+        <div class="dl-hero-action">
+          <button type="button" id="btn-modal-install-pwa" class="cs-btn-primary dl-hero-install-btn">
+            <span>📲</span> <span>Установить приложение в 1 клик</span>
+          </button>
+          <div id="pwa-install-hint" class="dl-hero-hint">Поддерживается на Android Chrome, Safari iOS, Edge и Chrome PC</div>
+        </div>
+      </div>
+
+      <div class="dl-grid-two-col">
+        <!-- Col 1: Telegram Sharing -->
+        <div class="dl-box-panel dl-tg-panel">
+          <div class="dl-panel-header">
+            <span class="dl-panel-icon">✈️</span>
+            <div>
+              <div class="dl-panel-title">ОТПРАВИТЬ ДРУГУ В TELEGRAM</div>
+              <div class="dl-panel-subtitle">Друг откроет ссылку и сразу начнёт бой</div>
+            </div>
+          </div>
+          
+          <div class="dl-tg-input-group">
+            <input type="text" id="tg-share-url-input" class="dl-url-input" readonly value="https://sariko1238.github.io/Counter-Strike-game/">
+            <button type="button" id="btn-copy-tg-link" class="cs-btn-primary dl-btn-copy" title="Скопировать ссылку для друга">
+              <span>🔗</span> <span>Скопировать ссылку</span>
+            </button>
+          </div>
+
+          <div class="dl-tg-actions">
+            <button type="button" id="btn-open-tg-share" class="dl-btn-telegram">
+              <span>✈️</span> <span>Поделиться в Telegram</span>
+            </button>
+            <div id="tg-copy-toast" class="dl-copy-toast hidden">✅ Ссылка для Telegram скопирована в буфер обмена!</div>
+          </div>
+
+          <div class="dl-tip-box" style="margin-top: 10px; text-align: left;">
+            <span>💡 <b>Совет:</b> Отправь другу файл <code>Play Counter-Strike 1.6.html</code> — он весит 7 КБ и мгновенно запустит игру!</span>
+          </div>
+        </div>
+
+        <!-- Col 2: Mobile QR Code & Touch Controls -->
+        <div class="dl-box-panel dl-qr-panel">
+          <div class="dl-panel-header">
+            <span class="dl-panel-icon">📱</span>
+            <div>
+              <div class="dl-panel-title">ВХОД С ТЕЛЕФОНА (QR-КОД)</div>
+              <div class="dl-panel-subtitle">Наведи камеру для игры с джойстиком</div>
+            </div>
+          </div>
+
+          <div class="dl-qr-content">
+            <div class="dl-qr-frame">
+              <img id="modal-qr-image" 
+                   src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&amp;color=00e5ff&amp;bgcolor=0e1620&amp;data=https%3A%2F%2Fsariko1238.github.io%2FCounter-Strike-game%2F" 
+                   alt="QR Code Counter-Strike 1.6" 
+                   width="130" 
+                   height="130">
+            </div>
+            <div class="dl-qr-details">
+              <div class="dl-qr-text">
+                Сканируй камерой смартфона iPhone или Android — игра откроется в браузере с <b>сенсорным джойстиком WASD</b> и кнопками стрельбы!
+              </div>
+              <button type="button" id="btn-modal-toggle-touch" class="cs-btn-secondary dl-action-btn">
+                <span>🎮</span> <span id="modal-touch-status-text">Сенсорное управление</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Platforms Cards Row -->
+      <div class="dl-cards-grid">
+        <!-- Card 1: macOS Desktop App -->
+        <div class="dl-platform-card active">
+          <div class="dl-card-badge">MAC OS • APP</div>
+          <div class="dl-card-icon">🍏</div>
+          <div class="dl-card-title">Counter-Strike 1.6.app</div>
+          <div class="dl-card-desc">
+            Нативное приложение macOS на Рабочем столе. Работает автономно без рамок браузера на 60+ FPS!
+          </div>
+          <div class="dl-tip-box">
+            <span>Файл в папке:</span> <code>Counter-Strike 1.6.app</code>
+          </div>
+        </div>
+
+        <!-- Card 2: Windows PC Launcher -->
+        <div class="dl-platform-card">
+          <div class="dl-card-badge">WINDOWS PC</div>
+          <div class="dl-card-icon">🪟</div>
+          <div class="dl-card-title">Windows Launcher (.bat)</div>
+          <div class="dl-card-desc">
+            Мгновенный запуск в чистом окне игры без адресной строки браузера через <code>Counter-Strike 1.6.bat</code>.
+          </div>
+          <div class="dl-tip-box">
+            <span>Файл:</span> <code>Counter-Strike 1.6.bat</code>
+          </div>
+        </div>
+
+        <!-- Card 3: Android APK (Capacitor) -->
+        <div class="dl-platform-card">
+          <div class="dl-card-badge">ANDROID APK</div>
+          <div class="dl-card-icon">🤖</div>
+          <div class="dl-card-title">Android APK (Capacitor)</div>
+          <div class="dl-card-desc">
+            Конфигурация Capacitor для компиляции полноценного APK / Android Studio проекта.
+          </div>
+          <div class="dl-tip-box">
+            <span>Сборка:</span> <code>npm run android:sync</code>
+          </div>
+        </div>
+      </div>
+
+      <div class="dl-modal-footer">
+        <div class="dl-footer-status">
+          <span class="status-indicator-dot"></span>
+          <span>Онлайн-сервер активен • GitHub Pages • Service Worker 100% готов</span>
+        </div>
+        <button type="button" id="btn-close-app-modal-footer" class="cs-btn-primary">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Localization, Audio, Textures, Weapons, Map, Player, Bot, Lobby, Game scripts -->
   <script src="js/i18n.js"></script>
   <script src="js/audio.js"></script>
@@ -491,6 +1615,17 @@
   <script src="js/player.js"></script>
   <script src="js/bot.js"></script>
   <script src="js/lobby.js"></script>
+  <script src="js/touch.js"></script>
   <script src="js/game.js"></script>
+  <script>
+    // Offline Service Worker Registration for PWA & Desktop App
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => console.log('[CS 1.6] PWA Service Worker registered:', reg.scope))
+          .catch((err) => console.log('[CS 1.6] Service Worker registration note:', err));
+      });
+    }
+  </script>
 </body>
 </html>

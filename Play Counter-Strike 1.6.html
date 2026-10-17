@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Counter-Strike 1.6 - Онлайн Шутер 3D</title>
+  
+  <meta name="theme-color" content="#de9b35">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Counter-Strike 1.6 3D Online с ботами, скинами оружия и сенсорным джойстиком. Играй на телефоне и ПК!">
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body {
+      background: radial-gradient(circle at center, #152233 0%, #060a0f 85%);
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-x: hidden;
+    }
+    .launcher-card {
+      width: 480px;
+      max-width: 100%;
+      background: rgba(14, 22, 32, 0.92);
+      border: 1.5px solid rgba(0, 229, 255, 0.4);
+      border-radius: 16px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(0, 229, 255, 0.2);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      padding: 32px 24px;
+      text-align: center;
+      position: relative;
+    }
+    .badge-top {
+      display: inline-block;
+      background: linear-gradient(135deg, #ffaa00 0%, #ff6600 100%);
+      color: #05080c;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      padding: 5px 16px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 15px rgba(255, 170, 0, 0.35);
+    }
+    .logo-icon {
+      font-size: 58px;
+      line-height: 1;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 0 18px rgba(0, 229, 255, 0.7));
+      animation: pulseLogo 2.5s infinite alternate;
+    }
+    @keyframes pulseLogo {
+      0% { transform: scale(1); filter: drop-shadow(0 0 12px rgba(0, 229, 255, 0.4)); }
+      100% { transform: scale(1.08); filter: drop-shadow(0 0 25px rgba(0, 255, 170, 0.8)); }
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: #fff;
+      margin-bottom: 6px;
+      text-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #8da4be;
+      margin-bottom: 20px;
+      line-height: 1.45;
+    }
+    .status-bar {
+      background: rgba(6, 10, 16, 0.85);
+      border: 1px solid rgba(0, 255, 170, 0.25);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #00ffaa;
+      font-family: monospace;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #00ffaa;
+      box-shadow: 0 0 10px #00ffaa;
+      animation: blink 1.2s infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .btn-play {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      background: linear-gradient(135deg, #00e5ff 0%, #00ff88 100%);
+      color: #05080c;
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      padding: 16px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 0 25px rgba(0, 229, 255, 0.5);
+      transition: all 0.2s ease;
+      text-decoration: none;
+      margin-bottom: 12px;
+    }
+    .btn-play:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 35px rgba(0, 255, 136, 0.7);
+    }
+    .btn-play:active {
+      transform: translateY(1px);
+    }
+    .btn-install {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      background: linear-gradient(135deg, #ffaa00 0%, #ff8800 100%);
+      color: #060a0f;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      padding: 13px;
+      border: none;
+      border-radius: 9px;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 4px 15px rgba(255, 170, 0, 0.3);
+      transition: all 0.2s ease;
+      margin-bottom: 12px;
+    }
+    .btn-install:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(255, 170, 0, 0.5);
+    }
+    .btn-tg {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      background: #0088cc;
+      color: #fff;
+      font-size: 13.5px;
+      font-weight: 700;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 4px 15px rgba(0, 136, 204, 0.4);
+      transition: all 0.2s ease;
+      margin-bottom: 16px;
+    }
+    .btn-tg:hover {
+      background: #0099e6;
+      transform: translateY(-2px);
+    }
+    .features-list {
+      display: flex;
+      justify-content: space-around;
+      padding: 12px 6px;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .feature-item {
+      font-size: 11px;
+      color: #8da4be;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .feature-item span:first-child {
+      font-size: 16px;
+    }
+    .countdown-text {
+      font-size: 12px;
+      color: #728a9e;
+      margin-top: 8px;
+    }
+    .countdown-text span {
+      color: #00e5ff;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="launcher-card">
+    <div class="badge-top">★ ONLINE 3D SHOOTER ★</div>
+    <div class="logo-icon">💣</div>
+    <h1>COUNTER-STRIKE 1.6</h1>
+    <div class="subtitle">Легендарный 3D шутер с ботами, скинами оружия и сенсорным джойстиком для любого устройства (Android, iOS, PC, Mac)!</div>
+
+    <div class="features-list">
+      <div class="feature-item"><span>📱</span><span>Джойстик на тел.</span></div>
+      <div class="feature-item"><span>⚡️</span><span>60+ FPS</span></div>
+      <div class="feature-item"><span>🤖</span><span>Умные боты</span></div>
+      <div class="feature-item"><span>🔫</span><span>Dust II / AWP</span></div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-dot"></div>
+      <span id="status-text">СЕРВЕР ОНЛАЙН • ГОТОВ К ЗАПУСКУ</span>
+    </div>
+
+    <!-- Direct Launch Button -->
+    <a href="https://sariko1238.github.io/Counter-Strike-game/" id="btn-launch-game" class="btn-play">
+      <span>▶</span> <span>ИГРАТЬ В ОНЛАЙНЕ</span>
+    </a>
+
+    <!-- 1-Click PWA App Install -->
+    <a href="https://sariko1238.github.io/Counter-Strike-game/" id="btn-install-app" class="btn-install">
+      <span>📲</span> <span>Установить как приложение (PWA / APK)</span>
+    </a>
+
+    <!-- Telegram Web Share Button -->
+    <button type="button" id="btn-share-tg" class="btn-tg">
+      <span>✈️</span> <span>Отправить другу в Telegram</span>
+    </button>
+
+    <div class="countdown-text" id="countdown-box">
+      Автоматический запуск через <span id="countdown-sec">3</span> сек...
+    </div>
+  </div>
+
+  <script>
+    // Game URL configuration (GitHub Pages)
+    const GITHUB_PAGES_URL = 'https://sariko1238.github.io/Counter-Strike-game/';
+    const targetUrl = (window.location.protocol === 'file:') ? GITHUB_PAGES_URL : (window.location.href.includes('Play') ? './index.html' : GITHUB_PAGES_URL);
+
+    const launchBtn = document.getElementById('btn-launch-game');
+    if (launchBtn) launchBtn.href = targetUrl;
+
+    const installBtn = document.getElementById('btn-install-app');
+    if (installBtn) installBtn.href = targetUrl;
+
+    // Share in Telegram
+    const btnShare = document.getElementById('btn-share-tg');
+    if (btnShare) {
+      btnShare.addEventListener('click', () => {
+        const shareText = encodeURIComponent('🔥 Заходи в Counter-Strike 1.6 3D прямо на телефоне или ПК!\nРаботает без скачивания, с ботами и сенсорным джойстиком:\n' + GITHUB_PAGES_URL);
+        window.open('https://t.me/share/url?url=' + encodeURIComponent(GITHUB_PAGES_URL) + '&text=' + shareText, '_blank');
+      });
+    }
+
+    // Auto-launch countdown
+    let secondsLeft = 3;
+    const secSpan = document.getElementById('countdown-sec');
+    const interval = setInterval(() => {
+      secondsLeft--;
+      if (secSpan) secSpan.textContent = secondsLeft;
+      if (secondsLeft <= 0) {
+        clearInterval(interval);
+        window.location.href = targetUrl;
+      }
+    }, 1000);
+
+    // Cancel auto-redirect if user interacts
+    window.addEventListener('click', (e) => {
+      if (e.target.id !== 'btn-launch-game' && e.target.id !== 'btn-install-app') {
+        clearInterval(interval);
+        const box = document.getElementById('countdown-box');
+        if (box) box.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>

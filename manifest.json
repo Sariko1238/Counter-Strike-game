@@ -1,0 +1,42 @@
+{
+  "name": "Counter-Strike 1.6 - 3D Web Edition",
+  "short_name": "CS 1.6",
+  "description": "Легендарный тактический шутер Counter-Strike 1.6 в 3D для ПК и Android",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "com.valvesoftware.cs16web",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "fullscreen"],
+  "orientation": "landscape",
+  "background_color": "#070c12",
+  "theme_color": "#de9b35",
+  "categories": ["games", "action"],
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Играть (Play Match)",
+      "url": "./index.html",
+      "description": "Быстрый старт матча Counter-Strike 1.6",
+      "icons": [{ "src": "icons/icon.svg", "sizes": "any" }]
+    }
+  ]
+}

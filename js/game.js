@@ -163,6 +163,21 @@ class CSGame {
     } else if (mapName === 'beach') {
       this.scene.fog = new THREE.FogExp2(0xa2d2ff, 0.0032);
       this.map = new window.CSBeachMap(this.scene);
+    } else if (mapName === 'pool_day') {
+      this.scene.fog = new THREE.FogExp2(0x6ec0e6, 0.0035);
+      this.map = new window.CSBeachMap(this.scene);
+    } else if (mapName === 'inferno') {
+      this.scene.fog = new THREE.FogExp2(0x19182b, 0.0048);
+      this.map = new window.CSDust2Map(this.scene);
+    } else if (mapName === 'assault') {
+      this.scene.fog = new THREE.FogExp2(0x28323e, 0.0042);
+      this.map = new window.CSDust2Map(this.scene);
+    } else if (mapName === 'nuke') {
+      this.scene.fog = new THREE.FogExp2(0x6b7c8e, 0.0040);
+      this.map = new window.CSDust2Map(this.scene);
+    } else if (mapName === 'awp_india') {
+      this.scene.fog = new THREE.FogExp2(0xd6af72, 0.0042);
+      this.map = new window.CSDust2Map(this.scene);
     } else {
       this.scene.fog = new THREE.FogExp2(0xd8bf97, 0.0040);
       this.map = new window.CSDust2Map(this.scene);
@@ -172,13 +187,17 @@ class CSGame {
     // Update scoreboard title
     const sbTitle = document.getElementById('sb-map-title');
     if (sbTitle) {
-      if (mapName === 'minecraft') {
-        sbTitle.textContent = (window.csI18n ? window.csI18n.t('sb_title_minecraft') : 'DE_MINECRAFT - MATCH STATS');
-      } else if (mapName === 'beach') {
-        sbTitle.textContent = (window.csI18n ? window.csI18n.t('sb_title_beach') : 'DE_BEACH - MATCH STATS');
-      } else {
-        sbTitle.textContent = (window.csI18n ? window.csI18n.t('sb_title_dust2') : 'DE_DUST2 - MATCH STATS');
-      }
+      const titles = {
+        minecraft: 'DE_MINECRAFT - MATCH STATS',
+        beach: 'DE_BEACH - MATCH STATS',
+        pool_day: 'FY_POOL_DAY - DEATHMATCH',
+        inferno: 'DE_INFERNO - MATCH STATS',
+        assault: 'CS_ASSAULT - HOSTAGE RESCUE',
+        nuke: 'DE_NUKE - MATCH STATS',
+        awp_india: 'AWP_INDIA - SNIPER DUEL',
+        dust2: 'DE_DUST2 - MATCH STATS'
+      };
+      sbTitle.textContent = titles[mapName] || 'DE_DUST2 - MATCH STATS';
     }
 
     if (rebuild) {
@@ -257,39 +276,231 @@ class CSGame {
   }
 
   initUI() {
-    // Menu Team Selection
-    const btnCt = document.getElementById('btn-join-ct');
-    const btnT = document.getElementById('btn-join-t');
+    this.initPanoramaUI();
+    this.initAudioMixerUI();
 
-    btnCt.addEventListener('click', () => {
-      this.playerTeam = 'ct';
-      btnCt.classList.add('active');
-      btnT.classList.remove('active');
-      if (this.lobby3d) this.lobby3d.setTeam('ct');
-      this.updateLobbyBadge('ct');
-    });
+    // Start / Resume / Restart buttons
+    this.btnStart = document.getElementById('btn-start-game');
+    this.btnRestart = document.getElementById('btn-restart-game');
 
-    btnT.addEventListener('click', () => {
-      this.playerTeam = 't';
-      btnT.classList.add('active');
-      btnCt.classList.remove('active');
-      if (this.lobby3d) this.lobby3d.setTeam('t');
-      this.updateLobbyBadge('t');
-    });
+    // Unlock AudioContext on very first touch on mobile
+    const unlockAudioTouch = () => {
+      if (window.csAudio) {
+        window.csAudio.init();
+        window.csAudio.resume();
+      }
+      window.removeEventListener('touchstart', unlockAudioTouch);
+    };
+    window.addEventListener('touchstart', unlockAudioTouch, { passive: true });
 
-    // Map Selection
-    const selectMap = document.getElementById('select-map');
-    if (selectMap) {
-      selectMap.value = this.selectedMap || 'dust2';
-      selectMap.addEventListener('change', (e) => {
-        this.loadMap(e.target.value, true);
-        if (window.csAudio && window.csAudio.playMechanicalClick) {
-          window.csAudio.playMechanicalClick(1.4, 750);
+    // Mobile Portrait Rotation Overlay
+    const checkOrientation = () => {
+      const warning = document.getElementById('mobile-portrait-warning');
+      if (!warning) return;
+      const isPortrait = window.innerHeight > window.innerWidth && this.isTouchDevice();
+      if (isPortrait) {
+        warning.classList.remove('hidden');
+      } else {
+        warning.classList.add('hidden');
+      }
+    };
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+    checkOrientation();
+
+    const btnForce = document.getElementById('btn-force-landscape');
+    if (btnForce) {
+      btnForce.addEventListener('click', () => {
+        if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(() => {});
         }
       });
     }
 
-    // Language Toggle / I18n Init
+    if (this.btnStart) {
+      this.btnStart.addEventListener('click', () => {
+        window.csAudio.init();
+        window.csAudio.resume();
+
+        if (this.isTouchDevice()) {
+          if (window.csTouch) {
+            window.csTouch.setEnabled(true);
+          }
+          if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          }
+          if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch(() => {});
+          }
+        }
+
+        if (!this.isGameStarted) {
+          this.startMatchWithLoadingScreen(this.selectedMap || 'dust2', this.gameMode || 'defusal');
+        } else {
+          this.resumeMatch();
+        }
+      });
+    }
+
+    if (this.btnRestart) {
+      this.btnRestart.addEventListener('click', () => {
+        window.csAudio.init();
+        window.csAudio.resume();
+        if (this.isTouchDevice() && window.csTouch) {
+          window.csTouch.setEnabled(true);
+        }
+        this.startMatchWithLoadingScreen(this.selectedMap || 'dust2', this.gameMode || 'defusal');
+      });
+    }
+
+    // Re-lock pointer when clicking on canvas during gameplay (Desktop only)
+    this.container.addEventListener('click', () => {
+      if (this.isTouchDevice()) return;
+      if (this.isGameStarted && !this.isMenuOpen() && !this.isBuyMenuOpen && (!this.player || !this.player.isDead)) {
+        this.requestPointerLock();
+      }
+    });
+
+    // Touch Pause / Menu Button on Mobile HUD
+    const btnTouchPause = document.getElementById('btn-touch-pause');
+    if (btnTouchPause) {
+      const handlePause = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.togglePause();
+      };
+      btnTouchPause.addEventListener('click', handlePause);
+      btnTouchPause.addEventListener('touchend', handlePause, { passive: false });
+    }
+
+    // Death Overlay interactive buttons
+    const btnRespawn = document.getElementById('btn-respawn');
+    if (btnRespawn) {
+      btnRespawn.addEventListener('click', () => {
+        this.respawnPlayer();
+      });
+    }
+
+    // Buy Menu Items Click & Touch
+    document.querySelectorAll('.buy-item-btn').forEach(btn => {
+      const handleBuy = (e) => {
+        e.preventDefault();
+        const itemType = btn.getAttribute('data-weapon');
+        const cost = parseInt(btn.getAttribute('data-cost'));
+        this.buyItem(itemType, cost);
+      };
+      btn.addEventListener('click', handleBuy);
+      btn.addEventListener('touchend', handleBuy, { passive: false });
+    });
+
+    // Close Buy Menu Button
+    const btnCloseBuy = document.getElementById('btn-close-buy');
+    if (btnCloseBuy) {
+      const handleClose = (e) => {
+        e.preventDefault();
+        this.toggleBuyMenu(false);
+      };
+      btnCloseBuy.addEventListener('click', handleClose);
+      btnCloseBuy.addEventListener('touchend', handleClose, { passive: false });
+    }
+
+    // Audio feedback on hover & click for all buttons, cards, tabs, and selects
+    this.attachAudioFeedback('button, .nav-tab-btn, .mode-pill-btn, .map-card, .loadout-card, .faction-card, .ch-preset-btn, .color-chip, select');
+  }
+
+  attachAudioFeedback(selector) {
+    document.querySelectorAll(selector).forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        if (window.csAudio && window.csAudio.playMenuHover) {
+          window.csAudio.playMenuHover();
+        }
+      });
+      el.addEventListener('click', () => {
+        if (window.csAudio && window.csAudio.playMenuClick) {
+          window.csAudio.playMenuClick();
+        }
+      });
+    });
+  }
+
+  // =========================================================================
+  // CS:GO PANORAMA UI CONTROLLER
+  // =========================================================================
+  initPanoramaUI() {
+    this.gameMode = 'defusal';
+    this.activeLoadoutWeapon = 'ak47';
+
+    // 1. Navigation Tab Switching
+    const tabButtons = document.querySelectorAll('#panorama-tabs .nav-tab-btn');
+    const panes = document.querySelectorAll('.panorama-pane');
+
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetTab = btn.getAttribute('data-tab');
+        tabButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        panes.forEach(pane => {
+          if (pane.id === `pane-${targetTab}`) {
+            pane.classList.add('active');
+          } else {
+            pane.classList.remove('active');
+          }
+        });
+
+        if (window.csAudio && window.csAudio.playMechanicalClick) {
+          window.csAudio.playMechanicalClick(1.2, 850);
+        }
+      });
+    });
+
+    // 2. 3D Lobby Theme Selector
+    const themeSelect = document.getElementById('select-lobby-theme');
+    if (themeSelect) {
+      const savedTheme = localStorage.getItem('cs_lobby_theme') || 'dust2';
+      themeSelect.value = savedTheme;
+      themeSelect.addEventListener('change', (e) => {
+        if (this.lobby3d) {
+          this.lobby3d.applyTheme(e.target.value);
+        }
+        if (window.csAudio && window.csAudio.playMechanicalClick) {
+          window.csAudio.playMechanicalClick(1.5, 950);
+        }
+      });
+    }
+
+    // 3. Ambient Drone Music Button
+    const btnMusic = document.getElementById('btn-ambient-music');
+    if (btnMusic) {
+      btnMusic.addEventListener('click', () => {
+        if (this.lobby3d) {
+          const willPlay = !this.lobby3d.ambientPlaying;
+          this.lobby3d.toggleAmbientMusic(willPlay);
+          if (willPlay) {
+            btnMusic.classList.add('active');
+          } else {
+            btnMusic.classList.remove('active');
+          }
+        }
+      });
+    }
+
+    // 4. Sound Pack Nav Button
+    const btnSoundpackNav = document.getElementById('btn-open-soundpack-nav');
+    if (btnSoundpackNav) {
+      btnSoundpackNav.addEventListener('click', () => {
+        const modal = document.getElementById('soundpack-modal');
+        if (modal) {
+          modal.classList.remove('hidden');
+          this.renderSoundPackSlots(this.currentSoundPackCat || 'all');
+        }
+      });
+    }
+
+    // 5. Bilingual Switcher
     if (window.csI18n) {
       window.csI18n.init();
       window.addEventListener('cs_language_changed', () => {
@@ -308,159 +519,994 @@ class CSGame {
       });
     }
 
-    // Settings
-    const diffSelect = document.getElementById('select-difficulty');
-    diffSelect.addEventListener('change', (e) => {
-      this.difficulty = e.target.value;
-      this.bots.forEach(b => b.setDifficulty(this.difficulty));
+    // 6. Player Profile Card Widget & Editable Nickname
+    this.initProfileCard();
+
+    // 7. Play Pane: Game Mode Pills
+    const modePills = document.querySelectorAll('.mode-pill-btn');
+    modePills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        modePills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        this.gameMode = pill.getAttribute('data-mode');
+        if (window.csAudio && window.csAudio.playMechanicalClick) {
+          window.csAudio.playMechanicalClick(1.4, 750);
+        }
+      });
     });
 
+    // 8. Play Pane: 3D Tilt Map Cards
+    this.initMapCards();
+
+    // 9. Factions Selection (CT vs T)
+    const btnCt = document.getElementById('btn-join-ct');
+    const btnT = document.getElementById('btn-join-t');
+    const avatarIcon = document.getElementById('profile-avatar-icon');
+
+    if (btnCt && btnT) {
+      btnCt.addEventListener('click', () => {
+        this.playerTeam = 'ct';
+        btnCt.classList.add('active');
+        btnT.classList.remove('active');
+        if (this.lobby3d) this.lobby3d.setTeam('ct');
+        this.updateLobbyBadge('ct');
+        if (avatarIcon) avatarIcon.textContent = '👮';
+        if (window.csAudio && window.csAudio.playRadio) {
+          window.csAudio.playRadio('radio_lets_go');
+        }
+      });
+
+      btnT.addEventListener('click', () => {
+        this.playerTeam = 't';
+        btnT.classList.add('active');
+        btnCt.classList.remove('active');
+        if (this.lobby3d) this.lobby3d.setTeam('t');
+        this.updateLobbyBadge('t');
+        if (avatarIcon) avatarIcon.textContent = '🥷';
+        if (window.csAudio && window.csAudio.playRadio) {
+          window.csAudio.playRadio('radio_lock_n_load');
+        }
+      });
+    }
+
+    // 10. Match Settings: Difficulty, Bot count, Money, Time
+    const diffSelect = document.getElementById('select-difficulty');
+    if (diffSelect) {
+      diffSelect.addEventListener('change', (e) => {
+        this.difficulty = e.target.value;
+        this.bots.forEach(b => b.setDifficulty(this.difficulty));
+      });
+    }
+
     const botSelect = document.getElementById('select-bot-count');
-    botSelect.addEventListener('change', (e) => {
-      this.botCount = parseInt(e.target.value);
-    });
+    if (botSelect) {
+      botSelect.addEventListener('change', (e) => {
+        this.botCount = parseInt(e.target.value);
+      });
+    }
+
+    const moneySelect = document.getElementById('select-start-money');
+    if (moneySelect) {
+      moneySelect.addEventListener('change', (e) => {
+        this.startingMoney = parseInt(e.target.value);
+        if (this.player && !this.isGameStarted) {
+          this.player.money = this.startingMoney;
+          this.player.updateHUD();
+        }
+      });
+    }
+
+    const roundTimeSelect = document.getElementById('select-round-time');
+    if (roundTimeSelect) {
+      roundTimeSelect.addEventListener('change', (e) => {
+        this.roundTimeMax = parseInt(e.target.value);
+      });
+    }
 
     const sensSlider = document.getElementById('range-sensitivity');
     const sensVal = document.getElementById('sens-val');
-    sensSlider.addEventListener('input', (e) => {
-      const val = parseFloat(e.target.value);
-      this.player.mouseSensitivity = val;
-      sensVal.textContent = val.toFixed(1);
-    });
-
-    const volSlider = document.getElementById('range-volume');
-    const volVal = document.getElementById('vol-val');
-    volSlider.addEventListener('input', (e) => {
-      const val = parseFloat(e.target.value);
-      window.csAudio.setVolume(val);
-      volVal.textContent = Math.round(val * 100) + '%';
-    });
-
-    // Start / Resume / Restart buttons
-    this.btnStart = document.getElementById('btn-start-game');
-    this.btnRestart = document.getElementById('btn-restart-game');
-
-    this.btnStart.addEventListener('click', () => {
-      window.csAudio.init();
-      window.csAudio.resume();
-
-      if (!this.isGameStarted) {
-        this.startNewMatch();
-      } else {
-        this.resumeMatch();
-      }
-    });
-
-    if (this.btnRestart) {
-      this.btnRestart.addEventListener('click', () => {
-        window.csAudio.init();
-        window.csAudio.resume();
-        this.startNewMatch();
+    if (sensSlider) {
+      sensSlider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        if (this.player) this.player.mouseSensitivity = val;
+        if (sensVal) sensVal.textContent = val.toFixed(1);
       });
     }
 
-    // Re-lock pointer when clicking on canvas during gameplay
-    this.container.addEventListener('click', () => {
-      if (this.isGameStarted && !this.isMenuOpen() && !this.isBuyMenuOpen && (!this.player || !this.player.isDead)) {
-        this.requestPointerLock();
+    // 11. Loadout Weapon Inspector
+    this.initLoadoutInspector();
+
+    // 12. Dedicated Server Browser
+    this.initServerBrowser();
+
+    // 13. Live Crosshair Generator
+    this.initCrosshairGenerator();
+
+    // 14. PWA & Desktop App 1-Click Installer
+    this.initPWAInstaller();
+
+    // 15. Touch Controller (Mobile & Android APK)
+    if (window.csTouch && window.csTouch.init) {
+      window.csTouch.init();
+    }
+  }
+
+  // =========================================================================
+  // PWA & DESKTOP APP 1-CLICK INSTALLER, TELEGRAM SHARE & DOWNLOAD MODAL
+  // =========================================================================
+  initPWAInstaller() {
+    let deferredPrompt = null;
+    const GITHUB_PAGES_URL = 'https://sariko1238.github.io/Counter-Strike-game/';
+    const onlineUrl = (window.location.protocol === 'http:' || window.location.protocol === 'https:')
+      ? window.location.origin + window.location.pathname
+      : GITHUB_PAGES_URL;
+
+    const btnCenter = document.getElementById('btn-download-app-center');
+    const modal = document.getElementById('app-download-modal');
+    const btnClose = document.getElementById('btn-close-app-modal');
+    const btnCloseFooter = document.getElementById('btn-close-app-modal-footer');
+    const btnModalInstall = document.getElementById('btn-modal-install-pwa');
+    const pwaHint = document.getElementById('pwa-install-hint');
+    const btnModalTouch = document.getElementById('btn-modal-toggle-touch');
+    const touchStatusText = document.getElementById('modal-touch-status-text');
+    const btnCopyTg = document.getElementById('btn-copy-tg-link');
+    const btnOpenTg = document.getElementById('btn-open-tg-share');
+    const tgUrlInput = document.getElementById('tg-share-url-input');
+    const tgToast = document.getElementById('tg-copy-toast');
+    const qrImage = document.getElementById('modal-qr-image');
+
+    // Update share URL input and QR code if online
+    if (tgUrlInput) tgUrlInput.value = GITHUB_PAGES_URL;
+    if (qrImage) {
+      const qrTarget = encodeURIComponent(GITHUB_PAGES_URL);
+      qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&color=00e5ff&bgcolor=0e1620&data=${qrTarget}`;
+    }
+
+    // Capture beforeinstallprompt for instant 1-click PWA installation
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (btnCenter) btnCenter.classList.add('ready-to-install');
+      if (btnModalInstall) {
+        btnModalInstall.innerHTML = '<span>📲</span> <span>Установить приложение в 1 клик [ГОТОВО]</span>';
+      }
+      if (pwaHint) {
+        pwaHint.textContent = '★ Устройство готово! Нажмите для мгновенной установки иконки игры';
+        pwaHint.style.color = '#00ffaa';
       }
     });
 
-    // Death Overlay interactive buttons
-    const btnRespawn = document.getElementById('btn-respawn');
-    if (btnRespawn) {
-      btnRespawn.addEventListener('click', () => {
-        this.respawnPlayer();
+    window.addEventListener('appinstalled', () => {
+      deferredPrompt = null;
+      if (btnModalInstall) {
+        btnModalInstall.innerHTML = '<span>✓</span> <span>ПРИЛОЖЕНИЕ УСТАНОВЛЕНО!</span>';
+      }
+      if (pwaHint) {
+        pwaHint.textContent = '★ Игра добавлена на ваш главный экран / Рабочий стол';
+        pwaHint.style.color = '#00ffaa';
+      }
+    });
+
+    const openModal = () => {
+      if (modal) modal.classList.remove('hidden');
+      if (touchStatusText && window.csTouch) {
+        touchStatusText.textContent = window.csTouch.enabled
+          ? 'Отключить джойстик (ВКЛ)'
+          : 'Включить джойстик (ВЫКЛ)';
+      }
+      if (window.csAudio && window.csAudio.playMechanicalClick) {
+        window.csAudio.playMechanicalClick(1.4, 850);
+      }
+    };
+
+    const closeModal = () => {
+      if (modal) modal.classList.add('hidden');
+      if (window.csAudio && window.csAudio.playMechanicalClick) {
+        window.csAudio.playMechanicalClick(1.1, 700);
+      }
+    };
+
+    if (btnCenter) btnCenter.addEventListener('click', openModal);
+    if (btnClose) btnClose.addEventListener('click', closeModal);
+    if (btnCloseFooter) btnCloseFooter.addEventListener('click', closeModal);
+
+    // 1-Click PWA Install button for Mobile & PC
+    if (btnModalInstall) {
+      btnModalInstall.addEventListener('click', async () => {
+        if (window.csAudio && window.csAudio.playMechanicalClick) {
+          window.csAudio.playMechanicalClick(1.6, 950);
+        }
+
+        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const choice = await deferredPrompt.userChoice;
+          if (choice && choice.outcome === 'accepted') {
+            console.log('[CS 1.6] User accepted PWA installation');
+          }
+          deferredPrompt = null;
+        } else if (isIOS) {
+          alert('★ КАК УСТАНОВИТЬ COUNTER-STRIKE 1.6 НА IPHONE / IPAD:\n\n1. Нажмите иконку «Поделиться» (квадрат со стрелкой вверх ⎋) в браузере Safari.\n2. В появившемся меню выберите «На экран „Домой“» (➕).\n3. Иконка игры появится на главном экране телефона и будет запускаться на весь экран без рамок!');
+        } else {
+          const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+          if (isStandalone) {
+            alert(window.csI18n?.currentLang === 'en'
+              ? '★ Counter-Strike 1.6 is already running in standalone Desktop App mode!'
+              : '★ Игра Counter-Strike 1.6 уже запущена в автономном режиме приложения!');
+          } else {
+            const isAndroid = /android/i.test(navigator.userAgent);
+            if (isAndroid) {
+              alert('★ КАК УСТАНОВИТЬ НА ANDROID В 1 КЛИК:\n\n1. Нажмите на три точки ⋮ в правом верхнем углу Chrome.\n2. Выберите пункт «Установить приложение» (или «Добавить на гл. экран»).\n3. Официальная иконка появится рядом с вашими играми без вирусов и без предупреждений APK!');
+            } else {
+              const msg = window.csI18n?.currentLang === 'en'
+                ? '★ HOW TO INSTALL CS 1.6 AS A DESKTOP APP:\n\n1. In Chrome / Edge: Click the "Install" icon (🖥) on the right side of the address bar.\n2. On macOS: Launch "Counter-Strike 1.6.app" on your Desktop!\n3. On Windows: Run "Counter-Strike 1.6.bat" to launch instantly without browser borders.'
+                : '★ КАК ЗАПУСКАТЬ CS 1.6 КАК ОТДЕЛЬНОЕ ПРИЛОЖЕНИЕ:\n\n1. В браузере (Chrome / Edge): нажмите иконку «Установить» (🖥) справа в адресной строке.\n2. На macOS: запустите ярлык «Counter-Strike 1.6.app» на Рабочем столе!\n3. На Windows: запустите файл «Counter-Strike 1.6.bat» для мгновенного входа без рамок браузера.';
+              alert(msg);
+            }
+          }
+        }
       });
     }
 
-    // Buy Menu Items Click
-    document.querySelectorAll('.buy-item-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const itemType = btn.getAttribute('data-weapon');
-        const cost = parseInt(btn.getAttribute('data-cost'));
-        this.buyItem(itemType, cost);
+    // Telegram link copy button with toast
+    if (btnCopyTg) {
+      btnCopyTg.addEventListener('click', async () => {
+        const textToCopy = `🔥 Заходи в Counter-Strike 1.6 3D прямо в браузере или на телефоне! Сенсорный джойстик, боты, скины и 60+ FPS:\n${GITHUB_PAGES_URL}`;
+        
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(textToCopy);
+          } else {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = textToCopy;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+          }
+
+          if (tgToast) {
+            tgToast.classList.remove('hidden');
+            setTimeout(() => {
+              tgToast.classList.add('hidden');
+            }, 3500);
+          }
+
+          if (window.csAudio && window.csAudio.playMechanicalClick) {
+            window.csAudio.playMechanicalClick(1.5, 900);
+          }
+        } catch (err) {
+          console.error('[CS 1.6] Copy error:', err);
+          prompt('Скопируйте ссылку для друга вручную:', GITHUB_PAGES_URL);
+        }
+      });
+    }
+
+    // Telegram open share button
+    if (btnOpenTg) {
+      btnOpenTg.addEventListener('click', () => {
+        const shareMsg = encodeURIComponent('🔥 Заходи в Counter-Strike 1.6 3D прямо в браузере или на телефоне!\nСенсорный джойстик, умные боты и оффлайн-режим:\n' + GITHUB_PAGES_URL);
+        window.open(`https://t.me/share/url?url=${encodeURIComponent(GITHUB_PAGES_URL)}&text=${shareMsg}`, '_blank');
+        if (window.csAudio && window.csAudio.playMechanicalClick) {
+          window.csAudio.playMechanicalClick(1.2, 750);
+        }
+      });
+    }
+
+    // Modal touch toggle button
+    if (btnModalTouch) {
+      btnModalTouch.addEventListener('click', () => {
+        if (window.csTouch) {
+          window.csTouch.setEnabled(!window.csTouch.enabled);
+          if (touchStatusText) {
+            touchStatusText.textContent = window.csTouch.enabled
+              ? 'Отключить джойстик (ВКЛ)'
+              : 'Включить джойстик (ВЫКЛ)';
+          }
+        }
+        if (window.csAudio && window.csAudio.playMechanicalClick) {
+          window.csAudio.playMechanicalClick(1.3, 800);
+        }
+      });
+    }
+  }
+
+  // =========================================================================
+  // PROFILE CARD & RANKS
+  // =========================================================================
+  initProfileCard() {
+    const nickEl = document.getElementById('profile-nickname');
+    const btnEditNick = document.getElementById('btn-edit-nick');
+    const savedNick = localStorage.getItem('cs_profile_nickname') || 'CS_WARRIOR';
+
+    if (nickEl) nickEl.textContent = savedNick;
+    if (this.player) this.player.name = savedNick;
+
+    const handleEditNick = () => {
+      const current = nickEl ? nickEl.textContent : 'CS_WARRIOR';
+      const newNick = prompt(
+        window.csI18n?.currentLang === 'en'
+          ? 'Enter your tactical nickname:'
+          : 'Введите боевой никнейм игрока:',
+        current
+      );
+      if (newNick && newNick.trim().length > 0) {
+        const clean = newNick.trim().substring(0, 16);
+        if (nickEl) nickEl.textContent = clean;
+        localStorage.setItem('cs_profile_nickname', clean);
+        if (this.player) this.player.name = clean;
+      }
+    };
+
+    if (nickEl) nickEl.addEventListener('click', handleEditNick);
+    if (btnEditNick) btnEditNick.addEventListener('click', handleEditNick);
+
+    // Rank selector in Stats tab
+    const rankSelect = document.getElementById('select-player-rank');
+    const rankTitleEl = document.getElementById('profile-rank-title');
+    const rankIconEl = document.getElementById('profile-rank-icon');
+    const statsRankTitle = document.getElementById('stats-rank-title');
+    const statsRankIcon = document.getElementById('stats-rank-icon');
+
+    const ranksMap = {
+      silver1: { title: 'SILVER I', icon: '🥈' },
+      silver_elite: { title: 'SILVER ELITE', icon: '⚔️' },
+      gold_nova: { title: 'GOLD NOVA III', icon: '🥇' },
+      master_guardian: { title: 'MASTER GUARDIAN', icon: '🎖️' },
+      dmg: { title: 'DISTINGUISHED GUARDIAN', icon: '🦅' },
+      supreme: { title: 'SUPREME FIRST MASTER', icon: '👑' },
+      global: { title: 'THE GLOBAL ELITE', icon: '⭐' }
+    };
+
+    if (rankSelect) {
+      const savedRank = localStorage.getItem('cs_profile_rank') || 'global';
+      rankSelect.value = savedRank;
+      const rData = ranksMap[savedRank] || ranksMap.global;
+      if (rankTitleEl) rankTitleEl.textContent = rData.title;
+      if (rankIconEl) rankIconEl.textContent = rData.icon;
+      if (statsRankTitle) statsRankTitle.textContent = rData.title;
+      if (statsRankIcon) statsRankIcon.textContent = rData.icon;
+
+      rankSelect.addEventListener('change', (e) => {
+        const val = e.target.value;
+        const rd = ranksMap[val] || ranksMap.global;
+        if (rankTitleEl) rankTitleEl.textContent = rd.title;
+        if (rankIconEl) rankIconEl.textContent = rd.icon;
+        if (statsRankTitle) statsRankTitle.textContent = rd.title;
+        if (statsRankIcon) statsRankIcon.textContent = rd.icon;
+        localStorage.setItem('cs_profile_rank', val);
+        if (window.csAudio && window.csAudio.playMechanicalClick) {
+          window.csAudio.playMechanicalClick(1.6, 900);
+        }
+      });
+    }
+  }
+
+  // =========================================================================
+  // 3D TILT MAP CARDS INTERACTION
+  // =========================================================================
+  initMapCards() {
+    const mapCards = document.querySelectorAll('.map-card');
+    const savedMap = localStorage.getItem('cs_game_map') || 'dust2';
+
+    mapCards.forEach(card => {
+      const cardMap = card.getAttribute('data-map');
+      if (cardMap === savedMap) {
+        mapCards.forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        this.selectedMap = cardMap;
+      }
+
+      // 3D Parallax Tilt effect on mousemove
+      card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width - 0.5;
+        const y = (e.clientY - rect.top) / rect.height - 0.5;
+        const rotX = -y * 16;
+        const rotY = x * 16;
+        card.style.transform = `perspective(700px) rotateX(${rotX.toFixed(2)}deg) rotateY(${rotY.toFixed(2)}deg) scale3d(1.035, 1.035, 1.035)`;
+      });
+
+      card.addEventListener('mouseleave', () => {
+        card.style.transform = 'perspective(700px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+      });
+
+      // Card Selection
+      card.addEventListener('click', () => {
+        mapCards.forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        this.selectedMap = card.getAttribute('data-map');
+        localStorage.setItem('cs_game_map', this.selectedMap);
+
+        // Metallic lock-in sound
+        if (window.csAudio && window.csAudio.playMechanicalClick) {
+          window.csAudio.playMechanicalClick(1.65, 920);
+        }
+      });
+    });
+  }
+
+  // =========================================================================
+  // LOADOUT & 3D WEAPON INSPECTOR
+  // =========================================================================
+  initLoadoutInspector() {
+    const catButtons = document.querySelectorAll('.loadout-cat-btn');
+    const weaponCards = document.querySelectorAll('.loadout-card');
+    const inspectTitle = document.getElementById('inspect-title');
+    const inspectBanner = document.getElementById('inspect-banner-preview');
+    const inspectCatLabel = document.getElementById('inspect-category-label');
+    const skinSelect = document.getElementById('inspect-skin-select');
+    const btnEquip = document.getElementById('btn-equip-loadout');
+
+    // Category Filter
+    catButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        catButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const cat = btn.getAttribute('data-cat');
+
+        weaponCards.forEach(card => {
+          const wId = card.getAttribute('data-weapon');
+          const wData = window.WEAPONS_DATA[wId];
+          if (!wData) return;
+
+          let matches = (cat === 'all');
+          if (cat === 'rifles' && (wId === 'ak47' || wId === 'm4a1')) matches = true;
+          if (cat === 'snipers' && (wId === 'awp' || wId === 'scout' || wId === 'scar20')) matches = true;
+          if (cat === 'pistols' && (wId === 'glock' || wId === 'usp' || wId === 'deagle')) matches = true;
+          if (cat === 'knives' && wId === 'knife') matches = true;
+
+          card.style.display = matches ? 'block' : 'none';
+        });
       });
     });
 
-    // Close Buy Menu Button
-    document.getElementById('btn-close-buy').addEventListener('click', () => {
-      this.toggleBuyMenu(false);
+    const updateInspectTelemetry = (wId) => {
+      const wData = window.WEAPONS_DATA[wId] || window.WEAPONS_DATA.ak47;
+      if (!wData) return;
+
+      const damageVal = document.getElementById('stat-val-damage');
+      const damageFill = document.getElementById('stat-fill-damage');
+      const firerateVal = document.getElementById('stat-val-firerate');
+      const firerateFill = document.getElementById('stat-fill-firerate');
+      const recoilVal = document.getElementById('stat-val-recoil');
+      const recoilFill = document.getElementById('stat-fill-recoil');
+      const armorVal = document.getElementById('stat-val-armor');
+      const armorFill = document.getElementById('stat-fill-armor');
+      const speedVal = document.getElementById('stat-val-speed');
+      const speedFill = document.getElementById('stat-fill-speed');
+
+      if (damageVal) damageVal.textContent = `${wData.damage} HP (В тело) / ${wData.damage * 4} HP (Хедшот)`;
+      if (damageFill) damageFill.style.width = `${Math.min(100, (wData.damage / 115) * 100)}%`;
+
+      const rpm = wData.fireRate > 0 ? Math.round(60 / wData.fireRate) : 60;
+      if (firerateVal) firerateVal.textContent = `${rpm} RPM`;
+      if (firerateFill) firerateFill.style.width = `${Math.min(100, (rpm / 800) * 100)}%`;
+
+      const recoilPct = Math.round(Math.max(20, 100 - (wData.recoil || 0) * 800));
+      if (recoilVal) recoilVal.textContent = `${recoilPct}% • Контроль`;
+      if (recoilFill) recoilFill.style.width = `${recoilPct}%`;
+
+      const armorPct = Math.round((wData.penetrationPower || 0.75) * 100);
+      if (armorVal) armorVal.textContent = `${armorPct}%`;
+      if (armorFill) armorFill.style.width = `${armorPct}%`;
+
+      const spd = wData.speedUnits || 250;
+      if (speedVal) speedVal.textContent = `${spd} Units/sec`;
+      if (speedFill) speedFill.style.width = `${(spd / 250) * 100}%`;
+    };
+
+    // Weapon Card Click
+    weaponCards.forEach(card => {
+      card.addEventListener('click', () => {
+        weaponCards.forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        const wId = card.getAttribute('data-weapon');
+        this.activeLoadoutWeapon = wId;
+
+        const wData = window.WEAPONS_DATA[wId];
+        if (wData) {
+          if (inspectTitle) inspectTitle.textContent = `${wData.name.toUpperCase()}`;
+          if (inspectBanner) inspectBanner.textContent = wData.id.toUpperCase();
+          if (inspectCatLabel) {
+            inspectCatLabel.textContent = (wData.slot === 1) ? 'ОСНОВНОЕ ВООРУЖЕНИЕ' : (wData.slot === 2 ? 'ВТОРИЧНОЕ ОРУЖИЕ' : 'ХОЛОДНОЕ ОРУЖИЕ');
+          }
+        }
+
+        updateInspectTelemetry(wId);
+
+        // Update 3D operative in lobby
+        const curSkin = (window.WEAPON_SKIN_SELECTION && window.WEAPON_SKIN_SELECTION[wId]) || 'default';
+        if (this.lobby3d) {
+          this.lobby3d.setWeapon(wId, curSkin);
+        }
+
+        if (window.csAudio && window.csAudio.playMechanicalClick) {
+          window.csAudio.playMechanicalClick(1.3, 800);
+        }
+      });
     });
 
-    // Character Skin Selector (Minecraft Steve / Creeper / Diamond / CS Classic)
-    const charSkinSelect = document.getElementById('select-char-skin');
-    if (charSkinSelect) {
-      charSkinSelect.addEventListener('change', (e) => {
-        window.CHARACTER_SKIN_SELECTION = e.target.value;
-        if (this.player && this.player.currentSlot) {
+    // Skin Selector
+    if (skinSelect) {
+      skinSelect.addEventListener('change', (e) => {
+        const skinVal = e.target.value;
+        if (!window.WEAPON_SKIN_SELECTION) window.WEAPON_SKIN_SELECTION = {};
+        window.WEAPON_SKIN_SELECTION[this.activeLoadoutWeapon] = skinVal;
+
+        if (this.lobby3d) {
+          this.lobby3d.setWeapon(this.activeLoadoutWeapon, skinVal);
+        }
+
+        if (this.player && this.player.currentWeapon && this.player.currentWeapon.id === this.activeLoadoutWeapon) {
           this.player.selectSlot(this.player.currentSlot);
         }
-        // Update bots with chosen character theme
-        this.bots.forEach(b => {
-          if (b.meshGroup) {
-            b.scene.remove(b.meshGroup);
-            b.meshGroup = new THREE.Group();
-            b.limbs = {};
-            b.buildCharacterMesh();
-            b.scene.add(b.meshGroup);
-          }
-        });
       });
     }
 
-    // Reticle Selector
-    const reticleSelect = document.getElementById('select-reticle');
-    if (reticleSelect) {
-      reticleSelect.addEventListener('change', (e) => {
-        window.ACTIVE_RETICLE_STYLE = e.target.value;
-        if (this.player) {
-          this.player.activeReticle = e.target.value;
-          this.player.applyReticleClass(e.target.value);
+    // Equip button
+    if (btnEquip) {
+      btnEquip.addEventListener('click', () => {
+        const wId = this.activeLoadoutWeapon;
+        const curSkin = (window.WEAPON_SKIN_SELECTION && window.WEAPON_SKIN_SELECTION[wId]) || 'default';
+        if (this.lobby3d) {
+          this.lobby3d.setWeapon(wId, curSkin);
+        }
+        if (window.csAudio && window.csAudio.playSound) {
+          window.csAudio.playSound('m4a1_draw', { volume: 0.9, bus: 'weapons' });
+        }
+        btnEquip.textContent = '✓ ЭКИПИРОВАНО!';
+        setTimeout(() => {
+          btnEquip.textContent = '✓ ЭКИПИРОВАТЬ В ЛОББИ';
+        }, 1500);
+      });
+    }
+
+    // Initial telemetry update
+    updateInspectTelemetry('ak47');
+  }
+
+  // =========================================================================
+  // DEDICATED SERVER BROWSER
+  // =========================================================================
+  initServerBrowser() {
+    const connectButtons = document.querySelectorAll('.btn-connect-server');
+    connectButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const row = btn.closest('tr');
+        if (!row) return;
+        const mapName = row.getAttribute('data-map') || 'dust2';
+        const modeName = row.getAttribute('data-mode') || 'defusal';
+        this.startMatchWithLoadingScreen(mapName, modeName);
+      });
+    });
+
+    const refreshBtn = document.getElementById('btn-refresh-servers');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => {
+        document.querySelectorAll('.srv-ping').forEach(p => {
+          const newPing = Math.floor(Math.random() * 20 + 10);
+          p.textContent = `${newPing} ms`;
+        });
+        if (window.csAudio && window.csAudio.playMechanicalClick) {
+          window.csAudio.playMechanicalClick(1.8, 1100);
+        }
+      });
+    }
+  }
+
+  // =========================================================================
+  // LIVE INTERACTIVE CROSSHAIR GENERATOR
+  // =========================================================================
+  initCrosshairGenerator() {
+    const livePreview = document.getElementById('live-crosshair-preview');
+    const inGameCrosshair = document.getElementById('crosshair');
+
+    const sliderSize = document.getElementById('slider-ch-size');
+    const sliderThick = document.getElementById('slider-ch-thick');
+    const sliderGap = document.getElementById('slider-ch-gap');
+    const chkDot = document.getElementById('chk-ch-dot');
+    const selectReticle = document.getElementById('select-reticle');
+
+    const valSize = document.getElementById('ch-size-val');
+    const valThick = document.getElementById('ch-thick-val');
+    const valGap = document.getElementById('ch-gap-val');
+
+    let currentColor = '#00ff44';
+
+    const applyCrosshairStyles = () => {
+      const size = sliderSize ? parseInt(sliderSize.value) : 10;
+      const thick = sliderThick ? parseInt(sliderThick.value) : 2;
+      const gap = sliderGap ? parseInt(sliderGap.value) : 4;
+      const hasDot = chkDot ? chkDot.checked : false;
+      const reticle = selectReticle ? selectReticle.value : 'cs_classic';
+
+      if (valSize) valSize.textContent = `${size}px`;
+      if (valThick) valThick.textContent = `${thick}px`;
+      if (valGap) valGap.textContent = `${gap}px`;
+
+      const targets = [livePreview, inGameCrosshair];
+      targets.forEach(el => {
+        if (!el) return;
+        el.style.setProperty('--ch-size', `${size}px`);
+        el.style.setProperty('--ch-thick', `${thick}px`);
+        el.style.setProperty('--ch-gap', `${gap}px`);
+        el.style.setProperty('--ch-spread', `${gap}px`);
+
+        // Color & parts
+        el.querySelectorAll('.ch-part').forEach(part => {
+          part.style.backgroundColor = currentColor;
+          part.style.boxShadow = `0 0 2px rgba(0,0,0,0.9), 0 0 5px ${currentColor}`;
+          if (part.classList.contains('ch-top') || part.classList.contains('ch-bottom')) {
+            part.style.width = `${thick}px`;
+            part.style.height = `${size}px`;
+          } else {
+            part.style.height = `${thick}px`;
+            part.style.width = `${size}px`;
+          }
+        });
+
+        const dot = el.querySelector('.ch-dot');
+        if (dot) {
+          dot.style.display = hasDot ? 'block' : 'none';
+          dot.style.backgroundColor = currentColor;
+        }
+
+        // Apply reticle style class
+        el.className = el.className.replace(/reticle-\w+/g, '');
+        el.classList.add(`reticle-${reticle}`);
+      });
+    };
+
+    if (sliderSize) sliderSize.addEventListener('input', applyCrosshairStyles);
+    if (sliderThick) sliderThick.addEventListener('input', applyCrosshairStyles);
+    if (sliderGap) sliderGap.addEventListener('input', applyCrosshairStyles);
+    if (chkDot) chkDot.addEventListener('change', applyCrosshairStyles);
+    if (selectReticle) selectReticle.addEventListener('change', applyCrosshairStyles);
+
+    // Color Palette chips
+    document.querySelectorAll('.color-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.color-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        currentColor = chip.getAttribute('data-color') || '#00ff44';
+        applyCrosshairStyles();
+        if (window.csAudio && window.csAudio.playMechanicalClick) {
+          window.csAudio.playMechanicalClick(1.4, 800);
+        }
+      });
+    });
+
+    // Pro player presets
+    const presets = {
+      s1mple: { size: 6, thick: 2, gap: 1, dot: false, color: '#00ff44', reticle: 'cs_classic' },
+      niko: { size: 5, thick: 2, gap: -1, dot: false, color: '#00e5ff', reticle: 'cs_classic' },
+      zywoo: { size: 8, thick: 2, gap: 3, dot: false, color: '#00ff44', reticle: 'cs_classic' },
+      monesy: { size: 4, thick: 1, gap: 0, dot: true, color: '#ffffff', reticle: 'cs_classic' },
+      cs16: { size: 12, thick: 2, gap: 5, dot: false, color: '#00ff44', reticle: 'cs_classic' }
+    };
+
+    document.querySelectorAll('.ch-preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pKey = btn.getAttribute('data-preset');
+        const p = presets[pKey];
+        if (!p) return;
+
+        if (sliderSize) sliderSize.value = p.size;
+        if (sliderThick) sliderThick.value = p.thick;
+        if (sliderGap) sliderGap.value = p.gap;
+        if (chkDot) chkDot.checked = p.dot;
+        if (selectReticle) selectReticle.value = p.reticle;
+        currentColor = p.color;
+
+        applyCrosshairStyles();
+        if (window.csAudio && window.csAudio.playMechanicalClick) {
+          window.csAudio.playMechanicalClick(1.5, 900);
+        }
+      });
+    });
+
+    // Initial crosshair apply
+    applyCrosshairStyles();
+  }
+
+  // =========================================================================
+  // TACTICAL MATCH LOADING SCREEN TRANSITION
+  // =========================================================================
+  startMatchWithLoadingScreen(mapName = 'dust2', modeName = 'defusal') {
+    const loadingScreen = document.getElementById('loading-screen');
+    const mapTitleEl = document.getElementById('loading-map-name');
+    const mapDescEl = document.getElementById('loading-map-desc');
+    const stepTextEl = document.getElementById('loading-step-text');
+    const pctTextEl = document.getElementById('loading-pct');
+    const fillEl = document.getElementById('loading-bar-fill');
+    const tipTextEl = document.getElementById('loading-tip-text');
+
+    const tips = [
+      'Удерживайте [SHIFT] во время ходьбы — шаги оперативника становятся абсолютно бесшумными!',
+      'При стрельбе очередями (спрее) из AK-47 плавно ведите мышь вниз и влево для кучности.',
+      'Первая пуля из Desert Eagle и AWP летит точно в перекрестие прицела.',
+      'Нажмите [CTRL], чтобы присесть — это увеличит точность стрельбы и снизит силу отдачи.',
+      'Звук тиканья бомбы C4 ускоряется по мере приближения времени к детонации (45 сек).'
+    ];
+
+    if (tipTextEl) {
+      tipTextEl.textContent = tips[Math.floor(Math.random() * tips.length)];
+    }
+
+    if (mapTitleEl) {
+      mapTitleEl.textContent = `DE_${mapName.toUpperCase()}`;
+    }
+
+    if (mapDescEl) {
+      const modeLabel = (modeName === 'deathmatch') ? 'БОЙ НАСМЕРТЬ (DM)' : (modeName === 'sniper' ? 'AWP ДУЭЛЬ' : 'СОРЕВНОВАТЕЛЬНЫЙ 5x5');
+      mapDescEl.textContent = `РЕЖИМ: ${modeLabel} • TICKRATE 128 • VAC SECURED`;
+    }
+
+    if (loadingScreen) {
+      loadingScreen.classList.remove('hidden', 'fade-out');
+    }
+
+    // Play gun cocking / reload transition sound
+    if (window.csAudio && window.csAudio.playSound) {
+      window.csAudio.playSound('ak47_reload', { volume: 0.95, bus: 'weapons' });
+    }
+
+    // Simulated high-fidelity progress steps
+    const steps = [
+      { pct: 25, text: 'Загрузка 3D-геометрии карты и коллизий...' },
+      { pct: 55, text: 'Кэширование текстур, шейдеров и освещения...' },
+      { pct: 85, text: 'Инициализация навигационной сетки ботов...' },
+      { pct: 100, text: 'Подключение звукового движка CS:GO... Готово!' }
+    ];
+
+    let currentStep = 0;
+    const interval = setInterval(() => {
+      if (currentStep < steps.length) {
+        const s = steps[currentStep];
+        if (pctTextEl) pctTextEl.textContent = `${s.pct}%`;
+        if (fillEl) fillEl.style.width = `${s.pct}%`;
+        if (stepTextEl) stepTextEl.textContent = s.text;
+        currentStep++;
+      } else {
+        clearInterval(interval);
+
+        // Load the actual map and start match
+        this.loadMap(mapName, true);
+        this.startNewMatch();
+
+        // Smooth fade-out of loading screen
+        if (loadingScreen) {
+          loadingScreen.classList.add('fade-out');
+          setTimeout(() => {
+            loadingScreen.classList.add('hidden');
+            loadingScreen.classList.remove('fade-out');
+          }, 450);
+        }
+      }
+    }, 280);
+  }
+
+  initAudioMixerUI() {
+    // Weapons volume slider
+    const wpnSlider = document.getElementById('range-vol-weapons');
+    const wpnVal = document.getElementById('vol-weapons-val');
+    if (wpnSlider) {
+      wpnSlider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        if (window.csAudio) window.csAudio.setMixerVolume('weapons', val);
+        if (wpnVal) wpnVal.textContent = Math.round(val * 100) + '%';
+      });
+    }
+
+    // Footsteps volume slider
+    const stepSlider = document.getElementById('range-vol-footsteps');
+    const stepVal = document.getElementById('vol-footsteps-val');
+    if (stepSlider) {
+      stepSlider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        if (window.csAudio) window.csAudio.setMixerVolume('footsteps', val);
+        if (stepVal) stepVal.textContent = Math.round(val * 100) + '%';
+      });
+    }
+
+    // Effects volume slider
+    const effSlider = document.getElementById('range-vol-effects');
+    const effVal = document.getElementById('vol-effects-val');
+    if (effSlider) {
+      effSlider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        if (window.csAudio) window.csAudio.setMixerVolume('effects', val);
+        if (effVal) effVal.textContent = Math.round(val * 100) + '%';
+      });
+    }
+
+    // Voice volume slider
+    const voiceSlider = document.getElementById('range-vol-voice');
+    const voiceVal = document.getElementById('vol-voice-val');
+    if (voiceSlider) {
+      voiceSlider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        if (window.csAudio) window.csAudio.setMixerVolume('voice', val);
+        if (voiceVal) voiceVal.textContent = Math.round(val * 100) + '%';
+      });
+    }
+
+    // 3D Spatial Audio Checkbox
+    const chkSpatial = document.getElementById('chk-spatial-3d');
+    if (chkSpatial) {
+      chkSpatial.addEventListener('change', (e) => {
+        if (window.csAudio) window.csAudio.setSpatialAudio(e.target.checked);
+      });
+    }
+
+    // Reverb Checkbox
+    const chkReverb = document.getElementById('chk-reverb');
+    if (chkReverb) {
+      chkReverb.addEventListener('change', (e) => {
+        if (window.csAudio) window.csAudio.setReverbEnabled(e.target.checked);
+      });
+    }
+
+    // Sound Pack Modal toggle
+    const btnOpen = document.getElementById('btn-open-soundpack');
+    const modal = document.getElementById('soundpack-modal');
+    const btnClose = document.getElementById('btn-close-soundpack');
+    const btnCloseFooter = document.getElementById('btn-sp-close-footer');
+
+    if (btnOpen && modal) {
+      btnOpen.addEventListener('click', () => {
+        modal.classList.remove('hidden');
+        this.renderSoundPackSlots(this.currentSoundPackCat || 'all');
+      });
+    }
+
+    const closeModal = () => {
+      if (modal) modal.classList.add('hidden');
+    };
+    if (btnClose) btnClose.addEventListener('click', closeModal);
+    if (btnCloseFooter) btnCloseFooter.addEventListener('click', closeModal);
+
+    // Master Drag and Drop zone
+    const dropzone = document.getElementById('sp-dropzone');
+    if (dropzone) {
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('drag-active');
+      });
+      dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('drag-active');
+      });
+      dropzone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('drag-active');
+        if (e.dataTransfer && e.dataTransfer.files && window.csAudio) {
+          await window.csAudio.handleBatchDroppedFiles(e.dataTransfer.files);
+          this.renderSoundPackSlots(this.currentSoundPackCat || 'all');
         }
       });
     }
 
-    // Weapon Skins Selectors
-    const bindSkinSelector = (elemId, weaponKey) => {
-      const el = document.getElementById(elemId);
-      if (el) {
-        el.addEventListener('change', (e) => {
-          if (!window.WEAPON_SKIN_SELECTION) window.WEAPON_SKIN_SELECTION = {};
-          window.WEAPON_SKIN_SELECTION[weaponKey] = e.target.value;
-          if (this.player && this.player.currentWeapon && this.player.currentWeapon.id === weaponKey) {
-            this.player.selectSlot(this.player.currentSlot);
+    // Batch file input browse
+    const btnBrowseBatch = document.getElementById('btn-sp-browse-batch');
+    const batchFileInput = document.getElementById('sp-batch-file-input');
+    if (btnBrowseBatch && batchFileInput) {
+      btnBrowseBatch.addEventListener('click', () => batchFileInput.click());
+      batchFileInput.addEventListener('change', async () => {
+        if (batchFileInput.files && window.csAudio) {
+          await window.csAudio.handleBatchDroppedFiles(batchFileInput.files);
+          this.renderSoundPackSlots(this.currentSoundPackCat || 'all');
+          batchFileInput.value = '';
+        }
+      });
+    }
+
+    // Category Tabs
+    document.querySelectorAll('.sp-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.sp-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const cat = btn.getAttribute('data-cat');
+        this.currentSoundPackCat = cat;
+        this.renderSoundPackSlots(cat);
+      });
+    });
+
+    // Reset All Sounds Button
+    const btnResetAll = document.getElementById('btn-sp-reset-all');
+    if (btnResetAll) {
+      btnResetAll.addEventListener('click', () => {
+        if (window.csAudio) {
+          window.csAudio.resetAllSoundsToDefault();
+          this.renderSoundPackSlots(this.currentSoundPackCat || 'all');
+        }
+      });
+    }
+
+    // Listen for custom sound updates
+    window.addEventListener('cs_sound_updated', () => {
+      if (modal && !modal.classList.contains('hidden')) {
+        this.renderSoundPackSlots(this.currentSoundPackCat || 'all');
+      }
+    });
+  }
+
+  renderSoundPackSlots(category = 'all') {
+    const grid = document.getElementById('sp-slots-grid');
+    if (!grid || !window.csAudio) return;
+    grid.innerHTML = '';
+
+    const catalog = window.csAudio.soundCatalog || [];
+    const filtered = (category === 'all')
+      ? catalog
+      : catalog.filter(item => item.category === category);
+
+    filtered.forEach(item => {
+      const card = document.createElement('div');
+      const isCustom = Boolean(window.csAudio.isCustomSound && window.csAudio.isCustomSound[item.key]);
+      card.className = `sp-slot-card ${isCustom ? 'is-custom' : ''}`;
+
+      const badgeText = isCustom ? 'Пользовательский 🟢' : 'CS:GO Default';
+      const badgeClass = isCustom ? 'sp-badge-custom' : 'sp-badge-default';
+
+      card.innerHTML = `
+        <div class="sp-slot-top">
+          <span class="sp-slot-name">${item.name}</span>
+          <span class="sp-badge ${badgeClass}">${badgeText}</span>
+        </div>
+        <div class="sp-slot-desc">${item.desc}</div>
+        <div class="sp-slot-actions">
+          <button type="button" class="sp-btn-preview" title="Прослушать">▶ Тест</button>
+          <label class="sp-btn-upload" title="Загрузить свой .wav/.mp3">
+            📁 Загрузить
+            <input type="file" accept=".wav,.mp3,.ogg" style="display:none" class="sp-slot-file-input">
+          </label>
+          ${isCustom ? `<button type="button" class="sp-btn-reset-slot" title="Сбросить на эталонный CS:GO">↺</button>` : ''}
+        </div>
+      `;
+
+      // Preview button
+      const btnPrev = card.querySelector('.sp-btn-preview');
+      btnPrev.addEventListener('click', () => {
+        if (window.csAudio) {
+          window.csAudio.playSound(item.key, { volume: 1.0, bus: 'ui' });
+        }
+      });
+
+      // Individual file input
+      const fileInp = card.querySelector('.sp-slot-file-input');
+      fileInp.addEventListener('change', async (e) => {
+        if (e.target.files && e.target.files[0] && window.csAudio) {
+          await window.csAudio.loadCustomAudioFile(item.key, e.target.files[0]);
+          this.renderSoundPackSlots(category);
+        }
+      });
+
+      // Reset button
+      const btnReset = card.querySelector('.sp-btn-reset-slot');
+      if (btnReset) {
+        btnReset.addEventListener('click', () => {
+          if (window.csAudio) {
+            window.csAudio.resetSoundToDefault(item.key);
+            this.renderSoundPackSlots(category);
           }
         });
       }
-    };
 
-    bindSkinSelector('select-awp-skin', 'awp');
-    bindSkinSelector('select-ak-skin', 'ak47');
-    bindSkinSelector('select-m4-skin', 'm4a1');
-    bindSkinSelector('select-deagle-skin', 'deagle');
-    bindSkinSelector('select-knife-skin', 'knife');
-    bindSkinSelector('select-scout-skin', 'scout');
+      grid.appendChild(card);
+    });
+  }
 
-    // Audio feedback on hover & click for all menu buttons, options and items
-    const attachAudioFeedback = (selector) => {
-      document.querySelectorAll(selector).forEach(el => {
-        el.addEventListener('mouseenter', () => {
-          if (window.csAudio && window.csAudio.playMenuHover) {
-            window.csAudio.playMenuHover();
-          }
-        });
-        el.addEventListener('click', () => {
-          if (window.csAudio && window.csAudio.playMenuClick) {
-            window.csAudio.playMenuClick();
-          }
-        });
-      });
-    };
-    attachAudioFeedback('button, .team-btn, .buy-item-btn, .death-action-btn, select');
+  isTouchDevice() {
+    return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 950);
   }
 
   requestPointerLock() {
+    if (this.isTouchDevice()) {
+      return; // Do not request desktop mouse pointer lock on mobile devices
+    }
     try {
       const el = this.renderer.domElement;
       if (document.pointerLockElement !== el) {
@@ -482,6 +1528,9 @@ class CSGame {
     } else {
       overlay.classList.add('hidden');
     }
+    if (window.csTouch && window.csTouch.updateVisibility) {
+      window.csTouch.updateVisibility();
+    }
   }
 
   isMenuOpen() {
@@ -492,7 +1541,12 @@ class CSGame {
   resumeMatch() {
     this.isPaused = false;
     this.showMenuOverlay(false);
-    this.requestPointerLock();
+    if (!this.isTouchDevice()) {
+      this.requestPointerLock();
+    }
+    if (window.csTouch) {
+      window.csTouch.updateVisibility();
+    }
   }
 
   pauseGame() {
@@ -554,15 +1608,20 @@ class CSGame {
     if (shouldShow) {
       if (this.player.isDead || !this.isGameStarted || this.isPaused) return;
       this.isBuyMenuOpen = true;
-      document.exitPointerLock();
+      if (!this.isTouchDevice()) {
+        document.exitPointerLock();
+      }
       buyMenu.classList.remove('hidden');
       document.getElementById('buy-current-money').textContent = `$${this.player.money}`;
     } else {
       this.isBuyMenuOpen = false;
       buyMenu.classList.add('hidden');
-      if (this.isGameStarted && !this.isPaused) {
+      if (this.isGameStarted && !this.isPaused && !this.isTouchDevice()) {
         this.requestPointerLock();
       }
+    }
+    if (window.csTouch && window.csTouch.updateVisibility) {
+      window.csTouch.updateVisibility();
     }
   }
 
@@ -668,7 +1727,15 @@ class CSGame {
     this.setupBots();
     this.startRound();
     this.showMenuOverlay(false);
-    this.requestPointerLock();
+    if (!this.isTouchDevice()) {
+      this.requestPointerLock();
+    }
+    if (window.csTouch) {
+      if (this.isTouchDevice()) {
+        window.csTouch.setEnabled(true);
+      }
+      window.csTouch.updateVisibility();
+    }
 
     if (this.btnStart) {
       const resumeText = window.csI18n ? window.csI18n.t('resume_btn') : 'ПРОДОЛЖИТЬ (RESUME)';
@@ -692,16 +1759,20 @@ class CSGame {
     });
     this.bots = [];
 
-    // Strictly 1 vs 5 mode: 0 friendly bots, exactly 5 enemy bots
+    // 1 vs N mode: 0 friendly bots, enemy bots based on selected botCount
     const enemyTeam = (this.playerTeam === 'ct' ? 't' : 'ct');
-    const botNamesT = ['Phoenix_Leader', 'Desert_Fox', 'Anarchist', 'Rebel_Strike', 'Guerilla_Elite'];
-    const botNamesCT = ['Seal_Alpha', 'Ghost_Rider', 'Bravo_Six', 'Viper_SAS', 'GSG9_Sniper'];
+    const botNamesT = ['Phoenix_Leader', 'Desert_Fox', 'Anarchist', 'Rebel_Strike', 'Guerilla_Elite', 'Balkan_Veteran', 'Pirate_One', 'Separatist'];
+    const botNamesCT = ['Seal_Alpha', 'Ghost_Rider', 'Bravo_Six', 'Viper_SAS', 'GSG9_Sniper', 'GIGN_Breacher', 'FBI_Agent', 'SWAT_Defender'];
     const botNames = (enemyTeam === 't' ? botNamesT : botNamesCT);
 
-    for (let i = 0; i < 5; i++) {
+    const count = this.botCount || 5;
+    for (let i = 0; i < count; i++) {
       const name = botNames[i % botNames.length] + ` [BOT ${i + 1}]`;
       const bot = new window.CSBot(`${enemyTeam}_${i}`, name, enemyTeam, this.scene, this.map);
-      bot.setDifficulty(this.difficulty);
+      bot.setDifficulty(this.gameMode === 'aimbotz' ? 'passive' : this.difficulty);
+      if (this.gameMode === 'sniper' || this.selectedMap === 'awp_india') {
+        bot.respawn(null, (i % 2 === 0 ? 'awp' : 'scout'));
+      }
       this.bots.push(bot);
     }
   }
@@ -737,6 +1808,21 @@ class CSGame {
     const playerSpawnList = this.playerTeam === 'ct' ? this.map.spawnPoints.ct : this.map.spawnPoints.t;
     const pSpawn = (playerSpawnList && playerSpawnList.length > 0) ? playerSpawnList[0] : { x: 0, z: 0 };
     this.player.spawn(pSpawn);
+
+    // Special Game Mode Loadouts
+    if (this.gameMode === 'sniper' || this.selectedMap === 'awp_india') {
+      if (window.WEAPONS_DATA && window.WEAPONS_DATA.awp) {
+        this.player.inventory[1] = { ...window.WEAPONS_DATA.awp };
+        this.player.inventory[1].currentClip = this.player.inventory[1].clipSize;
+        this.player.inventory[1].reserve = this.player.inventory[1].maxAmmo;
+        this.player.selectSlot(1);
+      }
+      if (window.WEAPONS_DATA && window.WEAPONS_DATA.deagle) {
+        this.player.inventory[2] = { ...window.WEAPONS_DATA.deagle };
+        this.player.inventory[2].currentClip = this.player.inventory[2].clipSize;
+        this.player.inventory[2].reserve = this.player.inventory[2].maxAmmo;
+      }
+    }
 
     // Spawn all 5 Enemy Bots
     const enemySpawnList = this.playerTeam === 'ct' ? this.map.spawnPoints.t : this.map.spawnPoints.ct;
@@ -897,7 +1983,7 @@ class CSGame {
 
   detonateBomb() {
     if (this.isBombDefused || !this.isBombPlanted) return;
-    window.csAudio.playExplosion();
+    window.csAudio.playExplosion(this.plantedBombPos);
 
     // Shockwave explosion flash
     const overlay = document.getElementById('damage-overlay');
@@ -1495,7 +2581,7 @@ class CSGame {
         if (this.bombBeepTimer >= beepInterval) {
           this.bombBeepTimer = 0;
           const pitch = 1100 + (45 - this.bombTimer) * 15;
-          window.csAudio.playBombBeep(pitch);
+          window.csAudio.playBombBeep(pitch, this.plantedBombPos);
         }
 
         if (this.bombTimer <= 0) {
@@ -1520,6 +2606,11 @@ class CSGame {
     // Update Player & Bots
     this.player.update(delta);
     this.bots.forEach(b => b.update(delta, this.player, this.bots));
+
+    // Update Web Audio API 3D HRTF listener position and orientation
+    if (window.csAudio && window.csAudio.updateListener && this.camera) {
+      window.csAudio.updateListener(this.camera);
+    }
 
     // Update Map (swaying palm leaves & animated ocean water)
     if (this.map && this.map.update) {
@@ -1732,7 +2823,9 @@ class CSGame {
       }
     });
 
-    this.requestPointerLock();
+    if (!this.isTouchDevice()) {
+      this.requestPointerLock();
+    }
     const respawnMsg = (window.csI18n?.currentLang === 'en')
       ? 'RESPAWN! SPAWN SHIELD: 2 SEC'
       : 'ВОЗРОЖДЕНИЕ! ЩИТ СПАВНА: 2 СЕК';

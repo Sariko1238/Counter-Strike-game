@@ -1,0 +1,39 @@
+#!/bin/bash
+# ==============================================================================
+# Counter-Strike 1.6 - macOS Native App Bundle Executable Launcher
+# ==============================================================================
+
+# Locate game folder
+DIR="/Users/macbookair/Desktop/Counter Strike game"
+if [ ! -d "$DIR" ]; then
+    DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+fi
+cd "$DIR" || exit 1
+
+PORT=8080
+URL="http://localhost:$PORT"
+
+# 1. Start background local server if not running
+if ! lsof -i :$PORT > /dev/null 2>&1; then
+    python3 -m http.server $PORT --directory "$DIR" > /dev/null 2>&1 &
+    sleep 0.7
+fi
+
+# 2. Check if Electron is installed
+if [ -d "$DIR/node_modules/electron" ]; then
+    npx electron "$DIR" &
+    exit 0
+fi
+
+# 3. Launch in standalone borderless application mode (--app)
+if [ -d "/Applications/Google Chrome.app" ]; then
+    open -na "Google Chrome" --args --app="$URL" --window-size=1280,800 --disable-infobars
+elif [ -d "/Applications/Brave Browser.app" ]; then
+    open -na "Brave Browser" --args --app="$URL" --window-size=1280,800
+elif [ -d "/Applications/Microsoft Edge.app" ]; then
+    open -na "Microsoft Edge" --args --app="$URL" --window-size=1280,800
+else
+    open "$URL"
+fi
+
+exit 0

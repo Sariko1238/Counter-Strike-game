@@ -1,0 +1,26 @@
+{
+  "appId": "com.valvesoftware.cs16web",
+  "appName": "Counter-Strike 1.6",
+  "webDir": ".",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#070c12",
+      "androidSplashResourceName": "splash"
+    },
+    "StatusBar": {
+      "overlaysWebView": true,
+      "style": "DARK"
+    }
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "backgroundColor": "#070c12"
+  }
+}

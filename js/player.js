@@ -525,8 +525,12 @@ class CSPlayer {
     this.rebuildViewmodel();
     this.updateHUD();
 
-    // Play switch whoosh / click sound
-    window.csAudio.playMechanicalClick(1.2, 700);
+    // Play authentic weapon switch / deploy clatter & slide cock
+    if (window.csAudio && window.csAudio.playDeploy) {
+      window.csAudio.playDeploy();
+    } else {
+      window.csAudio.playMechanicalClick(1.2, 700);
+    }
   }
 
   rebuildViewmodel() {
@@ -1448,17 +1452,26 @@ class CSPlayer {
         this.velocity.x += wishDir.x * currentSpeed * delta * accelRate;
         this.velocity.z += wishDir.z * currentSpeed * delta * accelRate;
 
-        // Surface footsteps (silent when shift-walking)
-        if (!this.keys['ShiftLeft']) {
+        // Surface footsteps (100% silent when shift-walking)
+        if (!this.keys['ShiftLeft'] && !this.keys['ShiftRight']) {
           this.footstepTimer += delta;
-          const stepInterval = (this.isCrouching ? 0.55 : 0.38);
+          const stepInterval = (this.isCrouching ? 0.55 : 0.36);
           if (this.footstepTimer > stepInterval) {
             this.footstepTimer = 0;
-            let surface = 'sand';
-            if (this.position.x < -30 && this.position.y <= 0.05) {
-              surface = 'water';
-            } else if (this.position.x >= 10 && this.position.x <= 34 && this.position.z >= 16 && this.position.z <= 38) {
-              surface = 'wood';
+            let surface = 'concrete';
+            if (window.csGame && window.csGame.currentMapId === 'dust2') {
+              surface = 'concrete';
+            } else if (window.csGame && window.csGame.currentMapId === 'minecraft') {
+              surface = (this.position.x >= 10 && this.position.z >= 16) ? 'wood' : 'concrete';
+            } else {
+              // de_beach
+              if (this.position.x < -30 && this.position.y <= 0.05) {
+                surface = 'water';
+              } else if (this.position.x >= 10 && this.position.x <= 34 && this.position.z >= 16 && this.position.z <= 38) {
+                surface = 'wood';
+              } else {
+                surface = 'sand';
+              }
             }
             window.csAudio.playFootstep(surface);
           }
@@ -1478,7 +1491,10 @@ class CSPlayer {
       if (this.keys['Space']) {
         this.velocity.y = 5.5; // Authentic jump impulse
         this.isOnGround = false;
-        const surface = (this.position.x >= 10 && this.position.z >= 16) ? 'wood' : 'sand';
+        let surface = 'concrete';
+        if (window.csGame && window.csGame.currentMapId === 'beach') {
+          surface = (this.position.x >= 10 && this.position.z >= 16) ? 'wood' : 'sand';
+        }
         window.csAudio.playFootstep(surface);
       }
     } else {
