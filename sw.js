@@ -3,7 +3,7 @@
  * Ensures zero-latency offline gameplay without Live Server or internet access.
  */
 
-const CACHE_NAME = 'cs16-v4-full-remaster';
+const CACHE_NAME = 'cs16-v5-classic-aim-all-maps';
 
 const CORE_ASSETS = [
   './',

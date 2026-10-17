@@ -152,8 +152,8 @@ class CSPlayer {
 
     // Aim Down Sights (ADS) & Custom Crosshairs
     this.isAds = false;
-    this.adsProgress = 0; // 0 (hipfire) to 1 (full ADS)
-    this.activeReticle = window.ACTIVE_RETICLE_STYLE || 'red_dot';
+    this.adsProgress = 0;
+    this.activeReticle = window.ACTIVE_RETICLE_STYLE || 'cs_classic';
 
     // Inventory & Weapons
     this.inventory = {
@@ -612,18 +612,38 @@ class CSPlayer {
       return;
     }
 
-    // 4. All other Firearms (AK-47, M4A1, Desert Eagle, Glock, USP)
-    // Toggle ADS (Aim Down Sights) with smooth optical zoom
-    this.isAds = !this.isAds;
-    this.isScoped = false;
-    this.scopeLevel = 0;
+    // 4. M4A1 & USP: Toggle Silencer on/off (Classic CS 1.6 / CS:GO)
+    if (this.currentWeapon.id === 'm4a1' || this.currentWeapon.id === 'usp') {
+      this.toggleSilencer();
+      return;
+    }
 
+    // 5. Glock: Toggle 3-round Burst Fire / Semi-Auto
+    if (this.currentWeapon.id === 'glock') {
+      this.toggleBurstFire();
+      return;
+    }
+  }
+
+  toggleSilencer() {
+    if (!this.currentViewmodelMesh || !this.currentViewmodelMesh.weaponMesh) return;
+    const silencer = this.currentViewmodelMesh.weaponMesh.silencerMesh;
+    if (!silencer) return;
+    silencer.visible = !silencer.visible;
     if (window.csAudio) {
-      if (window.csAudio.playAimZoom) {
-        window.csAudio.playAimZoom(this.isAds);
-      } else {
-        window.csAudio.playMechanicalClick(1.3, this.isAds ? 900 : 700);
+      if (window.csAudio.playMechanicalClick) {
+        window.csAudio.playMechanicalClick(1.5, silencer.visible ? 950 : 650);
       }
+    }
+    // Subtle tactile viewmodel twist on attach/detach
+    this.recoilRot.z += silencer.visible ? 0.16 : -0.16;
+    this.recoilOffset.z += 0.03;
+  }
+
+  toggleBurstFire() {
+    this.burstMode = !this.burstMode;
+    if (window.csAudio && window.csAudio.playMechanicalClick) {
+      window.csAudio.playMechanicalClick(1.8, this.burstMode ? 1050 : 750);
     }
   }
 
@@ -1247,25 +1267,18 @@ class CSPlayer {
     this.leanAmount = THREE.MathUtils.lerp(this.leanAmount, targetLean, delta * 11);
     this.leanRoll = THREE.MathUtils.lerp(this.leanRoll, targetLean * 0.175, delta * 11);
 
-    // Smooth ADS transition
-    const targetAds = (this.isAds && !this.isScoped) ? 1.0 : 0.0;
-    this.adsProgress = THREE.MathUtils.lerp(this.adsProgress, targetAds, delta * 12);
-
-    // Smooth Camera FOV Zoom for ADS & Sniper Scopes
+    // Smooth Camera FOV Zoom for Sniper Scopes ONLY (Classic CS 1.6: no ADS FOV distortion for rifles/pistols)
     let targetFov = 75;
     if (this.isScoped) {
       targetFov = (this.scopeLevel === 1) ? 32 : 14;
-    } else if (this.isAds) {
-      // Pistol vs Rifle zoom
-      targetFov = (this.currentWeapon && this.currentWeapon.slot === 2) ? 58 : 50;
     }
     this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, delta * 14);
     this.camera.updateProjectionMatrix();
 
-    // Toggle ADS reticle class on crosshair (cached DOM element)
+    // Ensure crosshair retains classic crisp green crosshair style
     if (!this._domCrosshair) this._domCrosshair = document.getElementById('crosshair');
-    if (this._domCrosshair) {
-      this._domCrosshair.classList.toggle('ads-active', this.isAds && !this.isScoped);
+    if (this._domCrosshair && this._domCrosshair.classList.contains('ads-active')) {
+      this._domCrosshair.classList.remove('ads-active');
     }
 
     // Smooth Recoil & Viewmodel Sway recovery (zero-allocation)
@@ -1274,18 +1287,16 @@ class CSPlayer {
     this.mouseSway.lerp(this._vZero2, delta * 8);
 
     if (this.currentViewmodelMesh) {
-      // Idle breathing subtle sway (dampened during ADS)
-      const swayDamp = 1.0 - this.adsProgress * 0.8;
+      // Idle breathing subtle sway
+      const swayDamp = 1.0;
       const time = performance.now() * 0.002;
-      const breathY = Math.sin(time) * 0.0015 * swayDamp;
-      const breathX = Math.cos(time * 0.5) * 0.001 * swayDamp;
+      const breathY = Math.sin(time) * 0.0015;
+      const breathX = Math.cos(time * 0.5) * 0.001;
 
-      // Weapon-specific ADS sight alignment (bringing iron sights / optic directly into camera eye)
-      const isPistol = (this.currentWeapon && this.currentWeapon.slot === 2);
-      const isM4 = (this.currentWeapon && this.currentWeapon.id === 'm4a1');
-      const adsOffsetX = -0.080 * this.adsProgress;
-      const adsOffsetY = (isPistol ? 0.038 : (isM4 ? 0.042 : 0.039)) * this.adsProgress;
-      const adsOffsetZ = (isPistol ? 0.045 : 0.065) * this.adsProgress;
+      // Authentic CS 1.6 / CS:GO ViewModel: NO center screen shift! Always stay in right-bottom viewmodel stance!
+      const adsOffsetX = 0;
+      const adsOffsetY = 0;
+      const adsOffsetZ = 0;
 
       // Multi-stage tactile reload viewmodel movement
       let reloadOffsetY = 0;

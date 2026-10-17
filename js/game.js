@@ -152,56 +152,90 @@ class CSGame {
 
   loadMap(mapName, rebuild = true) {
     if (this.map && this.map.destroy) {
-      this.map.destroy();
+      try {
+        this.map.destroy();
+      } catch (err) {
+        console.warn('[CS1.6] Error destroying previous map:', err);
+      }
     }
-    this.selectedMap = mapName;
-    localStorage.setItem('cs_game_map', mapName);
 
-    if (mapName === 'minecraft') {
-      this.scene.fog = new THREE.FogExp2(0x8fc5ff, 0.0035);
-      this.map = new window.CSMinecraftMap(this.scene);
-    } else if (mapName === 'beach') {
-      this.scene.fog = new THREE.FogExp2(0xa2d2ff, 0.0032);
-      this.map = new window.CSBeachMap(this.scene);
-    } else if (mapName === 'pool_day') {
-      this.scene.fog = new THREE.FogExp2(0x54a0ff, 0.0028);
-      this.map = new window.CSPoolDayMap(this.scene);
-    } else if (mapName === 'inferno') {
-      this.scene.fog = new THREE.FogExp2(0x2d1f1a, 0.0035);
-      this.map = new window.CSInfernoMap(this.scene);
-    } else if (mapName === 'assault') {
-      this.scene.fog = new THREE.FogExp2(0x1a2129, 0.0035);
-      this.map = new window.CSAssaultMap(this.scene);
-    } else if (mapName === 'nuke') {
-      this.scene.fog = new THREE.FogExp2(0x283038, 0.0032);
-      this.map = new window.CSNukeMap(this.scene);
-    } else if (mapName === 'awp_india') {
-      this.scene.fog = new THREE.FogExp2(0xc89e65, 0.0035);
-      this.map = new window.CSAwpIndiaMap(this.scene);
-    } else if (mapName === 'universal') {
-      this.scene.fog = new THREE.FogExp2(0x151b24, 0.0035);
-      this.map = new window.CSUniversalMap(this.scene);
-    } else {
-      this.scene.fog = new THREE.FogExp2(0xd8bf97, 0.0040);
+    let norm = (mapName || 'dust2').toLowerCase().trim();
+    if (norm.startsWith('de_')) norm = norm.substring(3);
+    else if (norm.startsWith('cs_')) norm = norm.substring(3);
+    else if (norm.startsWith('fy_')) norm = norm.substring(3);
+
+    this.selectedMap = norm;
+    localStorage.setItem('cs_game_map', norm);
+
+    try {
+      switch (norm) {
+        case 'minecraft':
+          this.scene.fog = new THREE.FogExp2(0x8fc5ff, 0.0035);
+          this.map = new window.CSMinecraftMap(this.scene);
+          break;
+        case 'beach':
+          this.scene.fog = new THREE.FogExp2(0xa2d2ff, 0.0030);
+          this.map = new window.CSBeachMap(this.scene);
+          break;
+        case 'pool_day':
+          this.scene.fog = new THREE.FogExp2(0x60b0ff, 0.0022);
+          this.map = new window.CSPoolDayMap(this.scene);
+          break;
+        case 'inferno':
+          this.scene.fog = new THREE.FogExp2(0x3a251b, 0.0032);
+          this.map = new window.CSInfernoMap(this.scene);
+          break;
+        case 'assault':
+          this.scene.fog = new THREE.FogExp2(0x1a2129, 0.0032);
+          this.map = new window.CSAssaultMap(this.scene);
+          break;
+        case 'nuke':
+          this.scene.fog = new THREE.FogExp2(0x283038, 0.0030);
+          this.map = new window.CSNukeMap(this.scene);
+          break;
+        case 'awp_india':
+          this.scene.fog = new THREE.FogExp2(0xc89e65, 0.0032);
+          this.map = new window.CSAwpIndiaMap(this.scene);
+          break;
+        case 'universal':
+          this.scene.fog = new THREE.FogExp2(0x151b24, 0.0032);
+          this.map = new window.CSUniversalMap(this.scene);
+          break;
+        case 'dust2':
+        default:
+          this.scene.fog = new THREE.FogExp2(0x3a7bd5, 0.0016);
+          this.map = new window.CSDust2Map(this.scene);
+          break;
+      }
+      this.map.buildMap();
+    } catch (err) {
+      console.error(`[CS1.6] Error building map "${norm}", falling back to Dust II:`, err);
+      this.scene.fog = new THREE.FogExp2(0x3a7bd5, 0.0016);
       this.map = new window.CSDust2Map(this.scene);
+      this.map.buildMap();
     }
-    this.map.buildMap();
 
-    // Update scoreboard title
+    // Update real map name in HUD (top-left) & Scoreboard
+    const hudMapNameEl = document.getElementById('hud-map-name');
+    const titles = {
+      minecraft: 'DE_MINECRAFT • 1 VS 5',
+      beach: 'DE_BEACH • 1 VS 5',
+      pool_day: 'FY_POOL_DAY • DEATHMATCH',
+      inferno: 'DE_INFERNO • 1 VS 5',
+      assault: 'CS_ASSAULT • HOSTAGE RESCUE',
+      nuke: 'DE_NUKE • 1 VS 5',
+      awp_india: 'AWP_INDIA • SNIPER DUEL',
+      universal: 'DE_UNIVERSAL • 1 VS 5',
+      dust2: 'DE_DUST2 • 1 VS 5'
+    };
+    const titleText = titles[norm] || `${norm.toUpperCase()} • 1 VS 5`;
+    if (hudMapNameEl) {
+      hudMapNameEl.textContent = titleText;
+    }
+
     const sbTitle = document.getElementById('sb-map-title');
     if (sbTitle) {
-      const titles = {
-        minecraft: 'DE_MINECRAFT - MATCH STATS',
-        beach: 'DE_BEACH - MATCH STATS',
-        pool_day: 'FY_POOL_DAY - DEATHMATCH',
-        inferno: 'DE_INFERNO - MATCH STATS',
-        assault: 'CS_ASSAULT - HOSTAGE RESCUE',
-        nuke: 'DE_NUKE - MATCH STATS',
-        awp_india: 'AWP_INDIA - SNIPER DUEL',
-        universal: 'DE_UNIVERSAL - MATCH STATS',
-        dust2: 'DE_DUST2 - MATCH STATS'
-      };
-      sbTitle.textContent = titles[mapName] || 'DE_DUST2 - MATCH STATS';
+      sbTitle.textContent = titleText.replace('•', '-');
     }
 
     if (rebuild) {

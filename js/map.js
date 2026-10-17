@@ -2749,61 +2749,266 @@ class CSUniversalMap {
 }
 
 // =============================================================================
-// DE_INFERNO: Italian Mediterranean Town with Terracotta & Cobblestone
+// FY_POOL_DAY: Mosaic Cyan & White Ceramic Tiles, Central Pool, Diving Blocks & Weapons
 // =============================================================================
-class CSInfernoMap extends CSDust2Map {
+class CSPoolDayMap {
   constructor(scene) {
-    super(scene);
-    this.bombsiteA = { x: 22, z: 26, radius: 8.5 };
-    this.bombsiteB = { x: -20, z: -18, radius: 8.5 };
+    this.scene = scene;
+    this.mapGroup = new THREE.Group();
+    this.colliders = [];
+    this.platforms = [];
+
+    this.bombsiteA = { x: 0, z: 16, radius: 7 };
+    this.bombsiteB = { x: 0, z: -16, radius: 7 };
+
+    this.spawnPoints = {
+      ct: [
+        { x: 0, y: 0, z: 26 },
+        { x: -8, y: 0, z: 26 },
+        { x: 8, y: 0, z: 26 },
+        { x: 0, y: 0, z: 30 }
+      ],
+      t: [
+        { x: 0, y: 0, z: -26 },
+        { x: -8, y: 0, z: -26 },
+        { x: 8, y: 0, z: -26 },
+        { x: 0, y: 0, z: -30 }
+      ]
+    };
+
+    this.waypoints = [
+      { id: 'ct_spawn', x: 0, z: 26, type: 'spawn_ct' },
+      { id: 'ct_left', x: -14, z: 22, type: 'path' },
+      { id: 'ct_right', x: 14, z: 22, type: 'path' },
+      { id: 'diving_ct', x: 0, z: 18, type: 'sniper' },
+      { id: 'pool_center', x: 0, z: 0, type: 'choke' },
+      { id: 'pool_left', x: -16, z: 0, type: 'path' },
+      { id: 'pool_right', x: 16, z: 0, type: 'path' },
+      { id: 'diving_t', x: 0, z: -18, type: 'sniper' },
+      { id: 't_left', x: -14, z: -22, type: 'path' },
+      { id: 't_right', x: 14, z: -22, type: 'path' },
+      { id: 't_spawn', x: 0, z: -26, type: 'spawn_t' }
+    ];
+
+    this.navConnections = {
+      ct_spawn: ['ct_left', 'ct_right', 'diving_ct'],
+      ct_left: ['pool_left', 'diving_ct'],
+      ct_right: ['pool_right', 'diving_ct'],
+      diving_ct: ['pool_center', 'pool_left', 'pool_right'],
+      pool_left: ['t_left', 'pool_center'],
+      pool_right: ['t_right', 'pool_center'],
+      pool_center: ['diving_t', 'pool_left', 'pool_right'],
+      diving_t: ['t_spawn', 't_left', 't_right'],
+      t_left: ['t_spawn'],
+      t_right: ['t_spawn'],
+      t_spawn: ['t_left', 't_right', 'diving_t']
+    };
   }
 
-  createLights() {
-    const ambient = new THREE.AmbientLight(0xd18a68, 0.44);
+  destroy() {
+    if (this.mapGroup) {
+      this.mapGroup.traverse(obj => {
+        if (obj.geometry) {
+          try { obj.geometry.dispose(); } catch (e) {}
+        }
+      });
+      this.scene.remove(this.mapGroup);
+    }
+    this.colliders = [];
+    this.platforms = [];
+  }
+
+  buildMap() {
+    this.mapGroup = new THREE.Group();
+    this.scene.add(this.mapGroup);
+
+    const tex = window.csTextures;
+
+    // 1. Lighting & Open Pool Facility Skylight
+    const ambient = new THREE.AmbientLight(0x70c0ff, 0.52);
     this.mapGroup.add(ambient);
-    const sun = new THREE.DirectionalLight(0xffcaa0, 1.15);
-    sun.position.set(40, 65, -30);
+
+    const sun = new THREE.DirectionalLight(0xffffff, 1.25);
+    sun.position.set(25, 65, -15);
     sun.castShadow = true;
     this.mapGroup.add(sun);
-  }
 
-  createGroundAndBoundaries() {
-    const tex = window.csTextures;
-    const groundGeom = new THREE.PlaneGeometry(120, 150);
-    const groundMat = new THREE.MeshStandardMaterial({
-      map: tex.getInfernoCobbleTexture(),
-      bumpMap: tex.getInfernoCobbleBump(),
-      bumpScale: 0.08,
-      roughness: 0.85
+    // Sky Dome
+    const skyGeom = new THREE.SphereGeometry(140, 24, 16);
+    const skyMat = new THREE.MeshBasicMaterial({
+      color: 0x60a8f8,
+      side: THREE.BackSide
     });
-    const ground = new THREE.Mesh(groundGeom, groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.set(0, 0, -2);
-    ground.receiveShadow = true;
-    this.mapGroup.add(ground);
+    this.mapGroup.add(new THREE.Mesh(skyGeom, skyMat));
+
+    // 2. White & Cyan Tiled Deck Floor
+    const floorMat = new THREE.MeshStandardMaterial({
+      map: tex.getPoolTileTexture('white'),
+      bumpMap: tex.getPoolTileBump(),
+      bumpScale: 0.06,
+      roughness: 0.25,
+      metalness: 0.1
+    });
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(64, 76), floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(0, 0, 0);
+    floor.receiveShadow = true;
+    this.mapGroup.add(floor);
 
     this.platforms.push({
-      box: new THREE.Box3(new THREE.Vector3(-55, -1, -70), new THREE.Vector3(55, 0, 65)),
+      box: new THREE.Box3(new THREE.Vector3(-32, -1, -38), new THREE.Vector3(32, 0, 38)),
       topY: 0,
       isRamp: false
     });
 
-    const wallMat = new THREE.MeshStandardMaterial({
-      map: tex.getInfernoWallTexture(),
-      bumpMap: tex.getInfernoWallBump(),
-      bumpScale: 0.10,
-      roughness: 0.8
+    // 3. Central Sunken Pool with Blue Underwater Tile & Water
+    const poolW = 18;
+    const poolD = 28;
+    const poolDepth = 1.35;
+
+    // Cyan Underwater Pool Bottom
+    const poolBottomMat = new THREE.MeshStandardMaterial({
+      map: tex.getPoolTileTexture('cyan'),
+      bumpMap: tex.getPoolTileBump(),
+      bumpScale: 0.08,
+      roughness: 0.20
     });
 
-    const boundaries = [
-      { x: 0, y: 3.5, z: -64, w: 110, h: 7, d: 2 },
-      { x: 0, y: 3.5, z: 54, w: 110, h: 7, d: 2 },
-      { x: -42, y: 3.5, z: -5, w: 2, h: 7, d: 120 },
-      { x: 44, y: 3.5, z: -5, w: 2, h: 7, d: 120 }
+    const poolBottom = new THREE.Mesh(new THREE.PlaneGeometry(poolW, poolD), poolBottomMat);
+    poolBottom.rotation.x = -Math.PI / 2;
+    poolBottom.position.set(0, -poolDepth, 0);
+    this.mapGroup.add(poolBottom);
+
+    // Pool Inner Walls (Left, Right, North, South)
+    const pWallMat = new THREE.MeshStandardMaterial({
+      map: tex.getPoolTileTexture('cyan'),
+      roughness: 0.25
+    });
+
+    const pWallL = new THREE.Mesh(new THREE.BoxGeometry(0.5, poolDepth, poolD), pWallMat);
+    pWallL.position.set(-poolW / 2, -poolDepth / 2, 0);
+    this.mapGroup.add(pWallL);
+
+    const pWallR = new THREE.Mesh(new THREE.BoxGeometry(0.5, poolDepth, poolD), pWallMat);
+    pWallR.position.set(poolW / 2, -poolDepth / 2, 0);
+    this.mapGroup.add(pWallR);
+
+    const pWallN = new THREE.Mesh(new THREE.BoxGeometry(poolW, poolDepth, 0.5), pWallMat);
+    pWallN.position.set(0, -poolDepth / 2, poolD / 2);
+    this.mapGroup.add(pWallN);
+
+    const pWallS = new THREE.Mesh(new THREE.BoxGeometry(poolW, poolDepth, 0.5), pWallMat);
+    pWallS.position.set(0, -poolDepth / 2, -poolD / 2);
+    this.mapGroup.add(pWallS);
+
+    // Semi-Transparent Animated Turquoise Water Surface
+    const waterMat = new THREE.MeshStandardMaterial({
+      map: tex.getPoolWaterTexture(),
+      roughness: 0.08,
+      metalness: 0.15,
+      transparent: true,
+      opacity: 0.68
+    });
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(poolW - 0.2, poolD - 0.2), waterMat);
+    water.rotation.x = -Math.PI / 2;
+    water.position.set(0, -0.12, 0);
+    this.mapGroup.add(water);
+
+    // 4. Diving Platforms at both ends of the pool
+    const divingMat = new THREE.MeshStandardMaterial({
+      map: tex.getPoolTileTexture('cyan'),
+      roughness: 0.3
+    });
+
+    [-poolD / 2 - 1.2, poolD / 2 + 1.2].forEach(dz => {
+      const stand = new THREE.Mesh(new THREE.BoxGeometry(4.5, 1.2, 1.8), divingMat);
+      stand.position.set(0, 0.6, dz);
+      this.mapGroup.add(stand);
+      this.colliders.push(new THREE.Box3().setFromObject(stand));
+
+      this.platforms.push({
+        box: new THREE.Box3().setFromObject(stand),
+        topY: 1.2,
+        isRamp: false
+      });
+    });
+
+    // 5. Tactical Tiled Barricades & Shower Columns
+    const barMat = new THREE.MeshStandardMaterial({
+      map: tex.getPoolTileTexture('cyan'),
+      bumpMap: tex.getPoolTileBump(),
+      bumpScale: 0.08,
+      roughness: 0.35
+    });
+
+    const barricades = [
+      // Flank cover blocks
+      { x: -14, y: 1.2, z: 8, w: 2.2, h: 2.4, d: 5.0 },
+      { x: 14, y: 1.2, z: 8, w: 2.2, h: 2.4, d: 5.0 },
+      { x: -14, y: 1.2, z: -8, w: 2.2, h: 2.4, d: 5.0 },
+      { x: 14, y: 1.2, z: -8, w: 2.2, h: 2.4, d: 5.0 },
+      // Spawn cover dividers
+      { x: -7, y: 1.0, z: 20, w: 4.5, h: 2.0, d: 1.4 },
+      { x: 7, y: 1.0, z: 20, w: 4.5, h: 2.0, d: 1.4 },
+      { x: -7, y: 1.0, z: -20, w: 4.5, h: 2.0, d: 1.4 },
+      { x: 7, y: 1.0, z: -20, w: 4.5, h: 2.0, d: 1.4 }
     ];
-    boundaries.forEach(b => {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), wallMat);
+
+    barricades.forEach(b => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), barMat);
       mesh.position.set(b.x, b.y, b.z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.mapGroup.add(mesh);
+      this.colliders.push(new THREE.Box3().setFromObject(mesh));
+    });
+
+    // 6. Scattered Weapon Pickups on Tiles (AK-47, M4A1, AWP, Scout, Deagle props)
+    const gunSteel = new THREE.MeshStandardMaterial({ color: 0x485058, metalness: 0.8, roughness: 0.3 });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x824424, roughness: 0.6 });
+
+    const weaponSpawns = [
+      { x: -8, z: 12, rot: 0.4 },
+      { x: 8, z: 12, rot: -0.3 },
+      { x: -8, z: -12, rot: -0.5 },
+      { x: 8, z: -12, rot: 0.2 },
+      { x: -18, z: 0, rot: 1.2 },
+      { x: 18, z: 0, rot: -1.1 }
+    ];
+
+    weaponSpawns.forEach(w => {
+      const gunGroup = new THREE.Group();
+      gunGroup.position.set(w.x, 0.08, w.z);
+      gunGroup.rotation.y = w.rot;
+
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.65), gunSteel);
+      const stock = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.12, 0.28), woodMat);
+      stock.position.z = 0.4;
+      gunGroup.add(body);
+      gunGroup.add(stock);
+
+      this.mapGroup.add(gunGroup);
+    });
+
+    // 7. Outer High Perimeter Tile Walls
+    const wallMat = new THREE.MeshStandardMaterial({
+      map: tex.getPoolTileTexture('white'),
+      bumpMap: tex.getPoolTileBump(),
+      bumpScale: 0.08,
+      roughness: 0.4
+    });
+
+    const perim = [
+      { x: 0, y: 4, z: -38, w: 66, h: 8, d: 2 },
+      { x: 0, y: 4, z: 38, w: 66, h: 8, d: 2 },
+      { x: -32, y: 4, z: 0, w: 2, h: 8, d: 78 },
+      { x: 32, y: 4, z: 0, w: 2, h: 8, d: 78 }
+    ];
+
+    perim.forEach(p => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), wallMat);
+      mesh.position.set(p.x, p.y, p.z);
       this.mapGroup.add(mesh);
       this.colliders.push(new THREE.Box3().setFromObject(mesh));
     });
@@ -2811,39 +3016,111 @@ class CSInfernoMap extends CSDust2Map {
 }
 
 // =============================================================================
-// CS_ASSAULT: Industrial Siege Warehouse (Concrete, Corrugated Metal, Hazard)
+// CS_ASSAULT: Industrial Siege Warehouse, Steel Truss Roof, Catwalks & Van
 // =============================================================================
-class CSAssaultMap extends CSDust2Map {
-  createLights() {
-    const ambient = new THREE.AmbientLight(0x506272, 0.45);
-    this.mapGroup.add(ambient);
-    const sun = new THREE.DirectionalLight(0xdfe6e9, 1.10);
-    sun.position.set(20, 70, -20);
-    sun.castShadow = true;
-    this.mapGroup.add(sun);
+class CSAssaultMap {
+  constructor(scene) {
+    this.scene = scene;
+    this.mapGroup = new THREE.Group();
+    this.colliders = [];
+    this.platforms = [];
+
+    this.bombsiteA = { x: 0, z: -6, radius: 8 };
+    this.bombsiteB = { x: -12, z: -20, radius: 8 };
+
+    this.spawnPoints = {
+      ct: [
+        { x: 0, y: 0, z: 38 },
+        { x: -6, y: 0, z: 38 },
+        { x: 6, y: 0, z: 38 },
+        { x: 0, y: 0, z: 42 }
+      ],
+      t: [
+        { x: 0, y: 0, z: -22 },
+        { x: -6, y: 0, z: -22 },
+        { x: 6, y: 0, z: -22 },
+        { x: 0, y: 0, z: -26 }
+      ]
+    };
+
+    this.waypoints = [
+      { id: 'ct_spawn', x: 0, z: 38, type: 'spawn_ct' },
+      { id: 'ct_street_l', x: -16, z: 26, type: 'path' },
+      { id: 'ct_street_r', x: 16, z: 26, type: 'path' },
+      { id: 'front_door', x: 0, z: 12, type: 'choke' },
+      { id: 'side_door', x: 18, z: 6, type: 'choke' },
+      { id: 'catwalk_bridge', x: 0, z: -6, type: 'ramp' },
+      { id: 'warehouse_floor', x: 0, z: -10, type: 'bombsite' },
+      { id: 'hostage_room', x: -12, z: -20, type: 'bombsite' },
+      { id: 't_spawn', x: 0, z: -22, type: 'spawn_t' }
+    ];
+
+    this.navConnections = {
+      ct_spawn: ['ct_street_l', 'ct_street_r', 'front_door'],
+      ct_street_l: ['front_door'],
+      ct_street_r: ['side_door', 'front_door'],
+      front_door: ['warehouse_floor', 'catwalk_bridge'],
+      side_door: ['warehouse_floor', 'catwalk_bridge'],
+      catwalk_bridge: ['warehouse_floor', 'hostage_room'],
+      warehouse_floor: ['hostage_room', 't_spawn'],
+      hostage_room: ['t_spawn'],
+      t_spawn: ['hostage_room', 'warehouse_floor', 'catwalk_bridge']
+    };
   }
 
-  createGroundAndBoundaries() {
+  destroy() {
+    if (this.mapGroup) {
+      this.mapGroup.traverse(obj => {
+        if (obj.geometry) {
+          try { obj.geometry.dispose(); } catch (e) {}
+        }
+      });
+      this.scene.remove(this.mapGroup);
+    }
+    this.colliders = [];
+    this.platforms = [];
+  }
+
+  buildMap() {
+    this.mapGroup = new THREE.Group();
+    this.scene.add(this.mapGroup);
     const tex = window.csTextures;
-    const groundGeom = new THREE.PlaneGeometry(120, 150);
+
+    // 1. Atmosphere & Lighting
+    const ambient = new THREE.AmbientLight(0x405568, 0.48);
+    this.mapGroup.add(ambient);
+
+    const streetLight = new THREE.DirectionalLight(0xdde8f8, 1.10);
+    streetLight.position.set(30, 75, 20);
+    streetLight.castShadow = true;
+    this.mapGroup.add(streetLight);
+
+    // Sky Dome
+    const skyGeom = new THREE.SphereGeometry(150, 24, 16);
+    const skyMat = new THREE.MeshBasicMaterial({ color: 0x182028, side: THREE.BackSide });
+    this.mapGroup.add(new THREE.Mesh(skyGeom, skyMat));
+
+    // 2. Concrete Ground (Asphalt outside, Polished inside)
     const groundMat = new THREE.MeshStandardMaterial({
       map: tex.getIndustrialConcreteTexture(),
       bumpMap: tex.getIndustrialConcreteBump(),
       bumpScale: 0.08,
       roughness: 0.82
     });
-    const ground = new THREE.Mesh(groundGeom, groundMat);
+
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(90, 110), groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.mapGroup.add(ground);
 
     this.platforms.push({
-      box: new THREE.Box3(new THREE.Vector3(-55, -1, -70), new THREE.Vector3(55, 0, 65)),
+      box: new THREE.Box3(new THREE.Vector3(-45, -1, -55), new THREE.Vector3(45, 0, 55)),
       topY: 0,
       isRamp: false
     });
 
-    const wallMat = new THREE.MeshStandardMaterial({
+    // 3. Blue Corrugated Steel Warehouse Hangar
+    const corrugMat = new THREE.MeshStandardMaterial({
       map: tex.getCorrugatedMetalTexture(),
       bumpMap: tex.getCorrugatedMetalBump(),
       bumpScale: 0.12,
@@ -2851,15 +3128,118 @@ class CSAssaultMap extends CSDust2Map {
       metalness: 0.45
     });
 
-    const boundaries = [
-      { x: 0, y: 4, z: -64, w: 110, h: 8, d: 2 },
-      { x: 0, y: 4, z: 54, w: 110, h: 8, d: 2 },
-      { x: -42, y: 4, z: -5, w: 2, h: 8, d: 120 },
-      { x: 44, y: 4, z: -5, w: 2, h: 8, d: 120 }
+    const hazardMat = new THREE.MeshStandardMaterial({
+      map: tex.getHazardStripeTexture(),
+      roughness: 0.5
+    });
+
+    // Main Warehouse Walls
+    const wWalls = [
+      { x: -22, y: 5.5, z: -8, w: 2, h: 11, d: 42 }, // West Wall
+      { x: 22, y: 5.5, z: -8, w: 2, h: 11, d: 42 },  // East Wall
+      { x: 0, y: 5.5, z: -29, w: 46, h: 11, d: 2 },  // North Wall (Back)
+      // South Wall with large roll-up opening in middle
+      { x: -14, y: 5.5, z: 13, w: 18, h: 11, d: 2 },
+      { x: 14, y: 5.5, z: 13, w: 18, h: 11, d: 2 },
+      { x: 0, y: 9.0, z: 13, w: 12, h: 4, d: 2 }     // Lintel over garage door
     ];
-    boundaries.forEach(b => {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), wallMat);
-      mesh.position.set(b.x, b.y, b.z);
+
+    wWalls.forEach(w => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w.w, w.h, w.d), corrugMat);
+      mesh.position.set(w.x, w.y, w.z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.mapGroup.add(mesh);
+      this.colliders.push(new THREE.Box3().setFromObject(mesh));
+    });
+
+    // Warehouse Peaked Steel Roof
+    const roofMat = new THREE.MeshStandardMaterial({
+      color: 0x2b3846,
+      metalness: 0.6,
+      roughness: 0.4
+    });
+    const roofL = new THREE.Mesh(new THREE.BoxGeometry(24, 0.6, 44), roofMat);
+    roofL.position.set(-11, 12, -8);
+    roofL.rotation.z = 0.22;
+    this.mapGroup.add(roofL);
+
+    const roofR = new THREE.Mesh(new THREE.BoxGeometry(24, 0.6, 44), roofMat);
+    roofR.position.set(11, 12, -8);
+    roofR.rotation.z = -0.22;
+    this.mapGroup.add(roofR);
+
+    // Hazard stripe around front roll-up garage door opening
+    const hazardTrim = new THREE.Mesh(new THREE.BoxGeometry(11.8, 0.4, 2.2), hazardMat);
+    hazardTrim.position.set(0, 7.1, 13);
+    this.mapGroup.add(hazardTrim);
+
+    // 4. Second-Floor Interior Steel Catwalk Bridge (y: 4.2)
+    const steelMat = new THREE.MeshStandardMaterial({ color: 0x3d4650, metalness: 0.8, roughness: 0.3 });
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(6.0, 0.3, 26.0), steelMat);
+    bridge.position.set(0, 4.2, -8);
+    this.mapGroup.add(bridge);
+    this.colliders.push(new THREE.Box3().setFromObject(bridge));
+
+    this.platforms.push({
+      box: new THREE.Box3().setFromObject(bridge),
+      topY: 4.35,
+      isRamp: false
+    });
+
+    // Bridge Railings
+    const railMat = new THREE.MeshStandardMaterial({ color: 0x5a6572, metalness: 0.85, roughness: 0.25 });
+    [-3.0, 3.0].forEach(rx => {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.1, 26.0), railMat);
+      rail.position.set(rx, 5.0, -8);
+      this.mapGroup.add(rail);
+      this.colliders.push(new THREE.Box3().setFromObject(rail));
+    });
+
+    // 5. Tactical Shipping Containers (Outside and Inside)
+    const cRed = tex.getShippingContainerTexture('red');
+    const cBlue = tex.getShippingContainerTexture('blue');
+
+    const containers = [
+      { x: -8, y: 1.6, z: 26, rot: 0.1, tex: cBlue },
+      { x: 12, y: 1.6, z: 28, rot: -0.2, tex: cRed },
+      { x: -10, y: 1.6, z: -6, rot: 0, tex: cRed },
+      { x: 10, y: 1.6, z: -14, rot: 0.3, tex: cBlue }
+    ];
+
+    containers.forEach(c => {
+      const mat = new THREE.MeshStandardMaterial({ map: c.tex, roughness: 0.55 });
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.2, 8.5), mat);
+      mesh.position.set(c.x, c.y, c.z);
+      mesh.rotation.y = c.rot;
+      this.mapGroup.add(mesh);
+      this.colliders.push(new THREE.Box3().setFromObject(mesh));
+
+      this.platforms.push({
+        box: new THREE.Box3().setFromObject(mesh),
+        topY: 3.2,
+        isRamp: false
+      });
+    });
+
+    // 6. Outside SWAT Police Van (CT Spawn Cover)
+    const vanMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.3, metalness: 0.6 });
+    const van = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.6, 6.5), vanMat);
+    van.position.set(0, 1.3, 33);
+    this.mapGroup.add(van);
+    this.colliders.push(new THREE.Box3().setFromObject(van));
+
+    // Outer Boundary Walls
+    const perim = [
+      { x: 0, y: 4, z: -50, w: 84, h: 8, d: 2 },
+      { x: 0, y: 4, z: 50, w: 84, h: 8, d: 2 },
+      { x: -40, y: 4, z: 0, w: 2, h: 8, d: 100 },
+      { x: 40, y: 4, z: 0, w: 2, h: 8, d: 100 }
+    ];
+
+    perim.forEach(p => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), corrugMat);
+      mesh.position.set(p.x, p.y, p.z);
       this.mapGroup.add(mesh);
       this.colliders.push(new THREE.Box3().setFromObject(mesh));
     });
@@ -2867,119 +3247,478 @@ class CSAssaultMap extends CSDust2Map {
 }
 
 // =============================================================================
-// DE_NUKE: Nuclear Facility with Concrete, Catwalks & Hazard Markings
+// DE_INFERNO: Italian Mediterranean Town, Terracotta Stucco, Cobblestone & Arches
 // =============================================================================
-class CSNukeMap extends CSAssaultMap {
-  createLights() {
-    const ambient = new THREE.AmbientLight(0x405565, 0.46);
+class CSInfernoMap {
+  constructor(scene) {
+    this.scene = scene;
+    this.mapGroup = new THREE.Group();
+    this.colliders = [];
+    this.platforms = [];
+
+    this.bombsiteA = { x: 18, z: 20, radius: 8 };
+    this.bombsiteB = { x: -18, z: -18, radius: 8 };
+
+    this.spawnPoints = {
+      ct: [
+        { x: 0, y: 0, z: 38 },
+        { x: -5, y: 0, z: 38 },
+        { x: 5, y: 0, z: 38 },
+        { x: 0, y: 0, z: 42 }
+      ],
+      t: [
+        { x: 0, y: 0, z: -42 },
+        { x: -5, y: 0, z: -42 },
+        { x: 5, y: 0, z: -42 },
+        { x: 0, y: 0, z: -46 }
+      ]
+    };
+
+    this.waypoints = [
+      { id: 't_spawn', x: 0, z: -42, type: 'spawn_t' },
+      { id: 't_mid', x: 0, z: -25, type: 'path' },
+      { id: 'banana_entrance', x: -16, z: -32, type: 'path' },
+      { id: 'banana_car', x: -18, z: -18, type: 'choke' },
+      { id: 'site_b', x: -18, z: -6, type: 'bombsite' },
+      { id: 'mid_center', x: 0, z: 0, type: 'path' },
+      { id: 'boiler_room', x: 12, z: 0, type: 'path' },
+      { id: 'site_a', x: 18, z: 20, type: 'bombsite' },
+      { id: 'church_arch', x: 14, z: 28, type: 'choke' },
+      { id: 'ct_spawn', x: 0, z: 38, type: 'spawn_ct' }
+    ];
+
+    this.navConnections = {
+      t_spawn: ['t_mid', 'banana_entrance'],
+      banana_entrance: ['banana_car'],
+      banana_car: ['site_b'],
+      site_b: ['ct_spawn', 'mid_center'],
+      t_mid: ['mid_center', 'banana_car'],
+      mid_center: ['boiler_room', 'site_a', 'site_b'],
+      boiler_room: ['site_a'],
+      site_a: ['church_arch', 'ct_spawn'],
+      church_arch: ['ct_spawn'],
+      ct_spawn: ['site_a', 'site_b', 'church_arch']
+    };
+  }
+
+  destroy() {
+    if (this.mapGroup) {
+      this.mapGroup.traverse(obj => {
+        if (obj.geometry) {
+          try { obj.geometry.dispose(); } catch (e) {}
+        }
+      });
+      this.scene.remove(this.mapGroup);
+    }
+    this.colliders = [];
+    this.platforms = [];
+  }
+
+  buildMap() {
+    this.mapGroup = new THREE.Group();
+    this.scene.add(this.mapGroup);
+    const tex = window.csTextures;
+
+    // 1. Warm Italian Golden Hour Lighting
+    const ambient = new THREE.AmbientLight(0xd18a68, 0.46);
     this.mapGroup.add(ambient);
-    const sun = new THREE.DirectionalLight(0xe8f0f8, 1.15);
-    sun.position.set(30, 80, -10);
+
+    const sun = new THREE.DirectionalLight(0xffcaa0, 1.20);
+    sun.position.set(40, 70, -25);
     sun.castShadow = true;
     this.mapGroup.add(sun);
-  }
-}
 
-// =============================================================================
-// FY_POOL_DAY: Mosaic Cyan & White Ceramic Tiles, Clean Water
-// =============================================================================
-class CSPoolDayMap extends CSBeachMap {
-  createLights() {
-    const ambient = new THREE.AmbientLight(0x54a0ff, 0.48);
-    this.scene.add(ambient);
-    const sun = new THREE.DirectionalLight(0xffffff, 1.20);
-    sun.position.set(20, 75, -20);
-    sun.castShadow = true;
-    this.scene.add(sun);
-  }
+    // Warm Mediterranean Sky
+    const skyGeom = new THREE.SphereGeometry(150, 24, 16);
+    const skyMat = new THREE.MeshBasicMaterial({ color: 0x4a6a8c, side: THREE.BackSide });
+    this.mapGroup.add(new THREE.Mesh(skyGeom, skyMat));
 
-  createGround() {
-    const tex = window.csTextures;
-    // Blue & White Ceramic Tiles
-    const groundGeom = new THREE.PlaneGeometry(120, 150);
+    // 2. Cobblestone Ground Terrain
     const groundMat = new THREE.MeshStandardMaterial({
-      map: tex.getPoolTileTexture('white'),
-      bumpMap: tex.getPoolTileBump(),
+      map: tex.getInfernoCobbleTexture(),
+      bumpMap: tex.getInfernoCobbleBump(),
       bumpScale: 0.08,
-      roughness: 0.25,
-      metalness: 0.1
-    });
-    const ground = new THREE.Mesh(groundGeom, groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    this.scene.add(ground);
-
-    this.platforms.push({
-      box: new THREE.Box3(new THREE.Vector3(-60, -1, -75), new THREE.Vector3(60, 0, 75)),
-      topY: 0,
-      isRamp: false
+      roughness: 0.82
     });
 
-    // Central Pool Water
-    const waterGeom = new THREE.PlaneGeometry(24, 36);
-    const waterMat = new THREE.MeshStandardMaterial({
-      map: tex.getPoolWaterTexture(),
-      roughness: 0.1,
-      metalness: 0.1,
-      transparent: true,
-      opacity: 0.75
-    });
-    const water = new THREE.Mesh(waterGeom, waterMat);
-    water.rotation.x = -Math.PI / 2;
-    water.position.set(0, 0.04, 0);
-    this.scene.add(water);
-  }
-}
-
-// =============================================================================
-// AWP_INDIA: Ancient Sandstone Sniper Temple
-// =============================================================================
-class CSAwpIndiaMap extends CSDust2Map {
-  createLights() {
-    const ambient = new THREE.AmbientLight(0xc68c53, 0.45);
-    this.mapGroup.add(ambient);
-    const sun = new THREE.DirectionalLight(0xffeaad, 1.20);
-    sun.position.set(40, 75, -30);
-    sun.castShadow = true;
-    this.mapGroup.add(sun);
-  }
-
-  createGroundAndBoundaries() {
-    const tex = window.csTextures;
-    const groundGeom = new THREE.PlaneGeometry(120, 150);
-    const groundMat = new THREE.MeshStandardMaterial({
-      map: tex.getAwpIndiaStoneTexture(),
-      bumpMap: tex.getDustGroundBump(),
-      bumpScale: 0.08,
-      roughness: 0.85
-    });
-    const ground = new THREE.Mesh(groundGeom, groundMat);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(90, 110), groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.mapGroup.add(ground);
 
     this.platforms.push({
-      box: new THREE.Box3(new THREE.Vector3(-55, -1, -70), new THREE.Vector3(55, 0, 65)),
+      box: new THREE.Box3(new THREE.Vector3(-45, -1, -55), new THREE.Vector3(45, 0, 55)),
       topY: 0,
       isRamp: false
     });
 
+    // 3. Terracotta Mediterranean Buildings & Tiled Roofs
     const wallMat = new THREE.MeshStandardMaterial({
-      map: tex.getAwpIndiaStoneTexture(),
-      bumpMap: tex.getDustWallBump(),
+      map: tex.getInfernoWallTexture(),
+      bumpMap: tex.getInfernoWallBump(),
       bumpScale: 0.10,
+      roughness: 0.78
+    });
+
+    const roofMat = new THREE.MeshStandardMaterial({
+      map: tex.getInfernoRoofTileTexture(),
+      roughness: 0.70
+    });
+
+    const buildings = [
+      // Church / Library at Bombsite A
+      { x: 20, y: 4.5, z: 22, w: 14, h: 9, d: 18 },
+      // Banana alley wall & apartments
+      { x: -22, y: 4.5, z: -20, w: 12, h: 9, d: 24 },
+      // Mid dividing apartments
+      { x: -4, y: 4.5, z: 8, w: 10, h: 9, d: 16 },
+      { x: 4, y: 4.5, z: -10, w: 10, h: 9, d: 16 }
+    ];
+
+    buildings.forEach(b => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), wallMat);
+      mesh.position.set(b.x, b.y, b.z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.mapGroup.add(mesh);
+      this.colliders.push(new THREE.Box3().setFromObject(mesh));
+
+      // Slanted terracotta tiled roof
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(b.w + 1.2, 0.8, b.d + 1.2), roofMat);
+      roof.position.set(b.x, b.y + b.h / 2 + 0.4, b.z);
+      this.mapGroup.add(roof);
+    });
+
+    // 4. Stone Arches & Wine Barrels
+    const archMat = new THREE.MeshStandardMaterial({
+      map: tex.getDustStoneArchTexture(),
+      roughness: 0.75
+    });
+
+    const arch = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 2.5), archMat);
+    arch.position.set(14, 2.5, 30);
+    this.mapGroup.add(arch);
+    this.colliders.push(new THREE.Box3().setFromObject(arch));
+
+    // Outer Boundary Walls
+    const perim = [
+      { x: 0, y: 4, z: -52, w: 86, h: 8, d: 2 },
+      { x: 0, y: 4, z: 52, w: 86, h: 8, d: 2 },
+      { x: -42, y: 4, z: 0, w: 2, h: 8, d: 104 },
+      { x: 42, y: 4, z: 0, w: 2, h: 8, d: 104 }
+    ];
+
+    perim.forEach(p => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), wallMat);
+      mesh.position.set(p.x, p.y, p.z);
+      this.mapGroup.add(mesh);
+      this.colliders.push(new THREE.Box3().setFromObject(mesh));
+    });
+  }
+}
+
+// =============================================================================
+// AWP_INDIA: Ancient Sandstone Sniper Temple with Center Trench & Ramparts
+// =============================================================================
+class CSAwpIndiaMap {
+  constructor(scene) {
+    this.scene = scene;
+    this.mapGroup = new THREE.Group();
+    this.colliders = [];
+    this.platforms = [];
+
+    this.bombsiteA = { x: 0, z: 12, radius: 6 };
+    this.bombsiteB = { x: 0, z: -12, radius: 6 };
+
+    this.spawnPoints = {
+      ct: [
+        { x: 0, y: 0, z: 32 },
+        { x: -6, y: 0, z: 32 },
+        { x: 6, y: 0, z: 32 },
+        { x: 0, y: 0, z: 36 }
+      ],
+      t: [
+        { x: 0, y: 0, z: -32 },
+        { x: -6, y: 0, z: -32 },
+        { x: 6, y: 0, z: -32 },
+        { x: 0, y: 0, z: -36 }
+      ]
+    };
+
+    this.waypoints = [
+      { id: 'ct_spawn', x: 0, z: 32, type: 'spawn_ct' },
+      { id: 'ct_rampart_l', x: -16, z: 24, type: 'sniper' },
+      { id: 'ct_rampart_r', x: 16, z: 24, type: 'sniper' },
+      { id: 'ct_trench_edge', x: 0, z: 12, type: 'path' },
+      { id: 'mid_arch', x: 0, z: 0, type: 'choke' },
+      { id: 't_trench_edge', x: 0, z: -12, type: 'path' },
+      { id: 't_rampart_l', x: -16, z: -24, type: 'sniper' },
+      { id: 't_rampart_r', x: 16, z: -24, type: 'sniper' },
+      { id: 't_spawn', x: 0, z: -32, type: 'spawn_t' }
+    ];
+
+    this.navConnections = {
+      ct_spawn: ['ct_rampart_l', 'ct_rampart_r', 'ct_trench_edge'],
+      ct_rampart_l: ['ct_trench_edge', 'mid_arch'],
+      ct_rampart_r: ['ct_trench_edge', 'mid_arch'],
+      ct_trench_edge: ['mid_arch'],
+      mid_arch: ['t_trench_edge', 'ct_trench_edge'],
+      t_trench_edge: ['mid_arch', 't_rampart_l', 't_rampart_r'],
+      t_rampart_l: ['t_spawn', 't_trench_edge'],
+      t_rampart_r: ['t_spawn', 't_trench_edge'],
+      t_spawn: ['t_rampart_l', 't_rampart_r', 't_trench_edge']
+    };
+  }
+
+  destroy() {
+    if (this.mapGroup) {
+      this.mapGroup.traverse(obj => {
+        if (obj.geometry) {
+          try { obj.geometry.dispose(); } catch (e) {}
+        }
+      });
+      this.scene.remove(this.mapGroup);
+    }
+    this.colliders = [];
+    this.platforms = [];
+  }
+
+  buildMap() {
+    this.mapGroup = new THREE.Group();
+    this.scene.add(this.mapGroup);
+    const tex = window.csTextures;
+
+    const ambient = new THREE.AmbientLight(0xc68c53, 0.46);
+    this.mapGroup.add(ambient);
+
+    const sun = new THREE.DirectionalLight(0xffeaad, 1.25);
+    sun.position.set(35, 75, -25);
+    sun.castShadow = true;
+    this.mapGroup.add(sun);
+
+    // Warm Sunlit Sky
+    const skyGeom = new THREE.SphereGeometry(140, 24, 16);
+    const skyMat = new THREE.MeshBasicMaterial({ color: 0x4a80c0, side: THREE.BackSide });
+    this.mapGroup.add(new THREE.Mesh(skyGeom, skyMat));
+
+    // Ground: Carved Temple Sandstone
+    const stoneMat = new THREE.MeshStandardMaterial({
+      map: tex.getAwpIndiaStoneTexture(),
+      bumpMap: tex.getDustGroundBump(),
+      bumpScale: 0.08,
+      roughness: 0.85
+    });
+
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(64, 84), stoneMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    this.mapGroup.add(ground);
+
+    this.platforms.push({
+      box: new THREE.Box3(new THREE.Vector3(-32, -1, -42), new THREE.Vector3(32, 0, 42)),
+      topY: 0,
+      isRamp: false
+    });
+
+    // Elevated Sniper Ramparts (Left & Right for both teams)
+    [-24, 24].forEach(rz => {
+      const rampartL = new THREE.Mesh(new THREE.BoxGeometry(10, 2.5, 8), stoneMat);
+      rampartL.position.set(-16, 1.25, rz);
+      this.mapGroup.add(rampartL);
+      this.colliders.push(new THREE.Box3().setFromObject(rampartL));
+
+      const rampartR = new THREE.Mesh(new THREE.BoxGeometry(10, 2.5, 8), stoneMat);
+      rampartR.position.set(16, 1.25, rz);
+      this.mapGroup.add(rampartR);
+      this.colliders.push(new THREE.Box3().setFromObject(rampartR));
+
+      this.platforms.push({ box: new THREE.Box3().setFromObject(rampartL), topY: 2.5, isRamp: false });
+      this.platforms.push({ box: new THREE.Box3().setFromObject(rampartR), topY: 2.5, isRamp: false });
+    });
+
+    // Center Sandstone Archway Bridge
+    const archMat = new THREE.MeshStandardMaterial({ map: tex.getDustStoneArchTexture(), roughness: 0.78 });
+    const arch = new THREE.Mesh(new THREE.BoxGeometry(8, 4.5, 3.5), archMat);
+    arch.position.set(0, 2.25, 0);
+    this.mapGroup.add(arch);
+    this.colliders.push(new THREE.Box3().setFromObject(arch));
+
+    // Outer Boundary Temple Walls
+    const perim = [
+      { x: 0, y: 4, z: -42, w: 66, h: 8, d: 2 },
+      { x: 0, y: 4, z: 42, w: 66, h: 8, d: 2 },
+      { x: -32, y: 4, z: 0, w: 2, h: 8, d: 86 },
+      { x: 32, y: 4, z: 0, w: 2, h: 8, d: 86 }
+    ];
+
+    perim.forEach(p => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), stoneMat);
+      mesh.position.set(p.x, p.y, p.z);
+      this.mapGroup.add(mesh);
+      this.colliders.push(new THREE.Box3().setFromObject(mesh));
+    });
+  }
+}
+
+// =============================================================================
+// DE_NUKE: Industrial Nuclear Power Facility with Reactor, Catwalks & Hazard Stripes
+// =============================================================================
+class CSNukeMap {
+  constructor(scene) {
+    this.scene = scene;
+    this.mapGroup = new THREE.Group();
+    this.colliders = [];
+    this.platforms = [];
+
+    this.bombsiteA = { x: 12, z: 8, radius: 7 };
+    this.bombsiteB = { x: 12, z: -14, radius: 7 };
+
+    this.spawnPoints = {
+      ct: [
+        { x: 0, y: 0, z: 36 },
+        { x: -5, y: 0, z: 36 },
+        { x: 5, y: 0, z: 36 },
+        { x: 0, y: 0, z: 40 }
+      ],
+      t: [
+        { x: 0, y: 0, z: -36 },
+        { x: -5, y: 0, z: -36 },
+        { x: 5, y: 0, z: -36 },
+        { x: 0, y: 0, z: -40 }
+      ]
+    };
+
+    this.waypoints = [
+      { id: 'ct_spawn', x: 0, z: 36, type: 'spawn_ct' },
+      { id: 'hut_outside', x: 10, z: 22, type: 'path' },
+      { id: 'bombsite_a', x: 12, z: 8, type: 'bombsite' },
+      { id: 'catwalk_gantry', x: 12, z: 0, type: 'sniper' },
+      { id: 'radioactive_silo', x: 12, z: -14, type: 'bombsite' },
+      { id: 'outside_yard', x: -16, z: 0, type: 'choke' },
+      { id: 't_roof', x: 0, z: -24, type: 'sniper' },
+      { id: 't_spawn', x: 0, z: -36, type: 'spawn_t' }
+    ];
+
+    this.navConnections = {
+      ct_spawn: ['hut_outside', 'outside_yard'],
+      hut_outside: ['bombsite_a', 'catwalk_gantry'],
+      bombsite_a: ['catwalk_gantry', 'radioactive_silo'],
+      catwalk_gantry: ['radioactive_silo', 't_roof'],
+      outside_yard: ['t_roof', 'radioactive_silo'],
+      radioactive_silo: ['t_spawn', 'outside_yard'],
+      t_roof: ['t_spawn'],
+      t_spawn: ['t_roof', 'outside_yard']
+    };
+  }
+
+  destroy() {
+    if (this.mapGroup) {
+      this.mapGroup.traverse(obj => {
+        if (obj.geometry) {
+          try { obj.geometry.dispose(); } catch (e) {}
+        }
+      });
+      this.scene.remove(this.mapGroup);
+    }
+    this.colliders = [];
+    this.platforms = [];
+  }
+
+  buildMap() {
+    this.mapGroup = new THREE.Group();
+    this.scene.add(this.mapGroup);
+    const tex = window.csTextures;
+
+    const ambient = new THREE.AmbientLight(0x405565, 0.46);
+    this.mapGroup.add(ambient);
+
+    const sun = new THREE.DirectionalLight(0xe8f0f8, 1.15);
+    sun.position.set(30, 80, -10);
+    sun.castShadow = true;
+    this.mapGroup.add(sun);
+
+    // Sky Dome with overcast industrial atmosphere
+    const skyGeom = new THREE.SphereGeometry(150, 24, 16);
+    const skyMat = new THREE.MeshBasicMaterial({ color: 0x222b34, side: THREE.BackSide });
+    this.mapGroup.add(new THREE.Mesh(skyGeom, skyMat));
+
+    // Industrial Concrete Yard Ground
+    const groundMat = new THREE.MeshStandardMaterial({
+      map: tex.getIndustrialConcreteTexture(),
+      bumpMap: tex.getIndustrialConcreteBump(),
+      bumpScale: 0.08,
       roughness: 0.82
     });
 
-    const boundaries = [
-      { x: 0, y: 4, z: -64, w: 110, h: 8, d: 2 },
-      { x: 0, y: 4, z: 54, w: 110, h: 8, d: 2 },
-      { x: -42, y: 4, z: -5, w: 2, h: 8, d: 120 },
-      { x: 44, y: 4, z: -5, w: 2, h: 8, d: 120 }
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 100), groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    this.mapGroup.add(ground);
+
+    this.platforms.push({
+      box: new THREE.Box3(new THREE.Vector3(-40, -1, -50), new THREE.Vector3(40, 0, 50)),
+      topY: 0,
+      isRamp: false
+    });
+
+    // Concrete Reactor Containment Building
+    const concreteMat = new THREE.MeshStandardMaterial({
+      map: tex.getIndustrialConcreteTexture(),
+      roughness: 0.78
+    });
+
+    const hazardMat = new THREE.MeshStandardMaterial({
+      map: tex.getHazardStripeTexture(),
+      roughness: 0.5
+    });
+
+    const buildings = [
+      { x: 12, y: 5.5, z: 0, w: 22, h: 11, d: 38 },  // Main Plant Core
+      { x: -14, y: 4.5, z: 12, w: 14, h: 9, d: 16 }   // Security Garage
     ];
-    boundaries.forEach(b => {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), wallMat);
+
+    buildings.forEach(b => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), concreteMat);
       mesh.position.set(b.x, b.y, b.z);
+      this.mapGroup.add(mesh);
+      this.colliders.push(new THREE.Box3().setFromObject(mesh));
+    });
+
+    // Hazard warning stripe trim
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(22.2, 0.4, 38.2), hazardMat);
+    trim.position.set(12, 1.2, 0);
+    this.mapGroup.add(trim);
+
+    // Glowing Nuclear Toxic Waste Barrels (Bombsite B)
+    const barrelMat = new THREE.MeshStandardMaterial({
+      color: 0xf1c40f,
+      roughness: 0.4,
+      metalness: 0.6
+    });
+
+    for (let i = 0; i < 4; i++) {
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.4, 12), barrelMat);
+      barrel.position.set(10 + (i % 2) * 1.4, 0.7, -14 + Math.floor(i / 2) * 1.4);
+      this.mapGroup.add(barrel);
+      this.colliders.push(new THREE.Box3().setFromObject(barrel));
+    }
+
+    // Outer Facility Walls
+    const corrugMat = new THREE.MeshStandardMaterial({
+      map: tex.getCorrugatedMetalTexture(),
+      roughness: 0.6
+    });
+
+    const perim = [
+      { x: 0, y: 4, z: -48, w: 78, h: 8, d: 2 },
+      { x: 0, y: 4, z: 48, w: 78, h: 8, d: 2 },
+      { x: -38, y: 4, z: 0, w: 2, h: 8, d: 98 },
+      { x: 38, y: 4, z: 0, w: 2, h: 8, d: 98 }
+    ];
+
+    perim.forEach(p => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), corrugMat);
+      mesh.position.set(p.x, p.y, p.z);
       this.mapGroup.add(mesh);
       this.colliders.push(new THREE.Box3().setFromObject(mesh));
     });
