@@ -1,0 +1,8 @@
+# Project Rules for Counter-Strike 1.6 Web Edition
+
+## CRITICAL AUTO-DEPLOY & CACHE RULE
+После ЛЮБОГО изменения кода в этом проекте ты ОБЯЗАН:
+1. Автоматически увеличивать версию `CACHE_NAME` в `sw.js` (например, `cs16-v...`).
+2. Сразу же выполнять в терминале команду:
+   `git add -A && git commit -m "Auto-update game" && git push origin main`
+   без ожидания дополнительной просьбы от пользователя.

@@ -108,19 +108,23 @@ class CSBeachMap {
     const origAdd = this.scene.add.bind(this.scene);
     this.scene.add = (obj) => { this.mapGroup.add(obj); };
 
-    this.createSky();
-    this.createLights();
-    this.createOceanAndBeach();
-    this.createPerimeterWalls();
-    this.buildBoardwalkAndPier();     // Bombsite A
-    this.buildTikiCabanasAndLagoon();  // Bombsite B
-    this.buildMidPromenade();          // Mid
-    this.buildTacticalProps();         // Crates, Umbrellas, Deck Chairs
-    this.buildPalmGroves();            // 3D Palm Trees
-    this.buildCoastalRocks();          // Boulders
-    this.buildSiteDecals();            // A & B Markings
-
-    this.scene.add = origAdd;
+    try {
+      this.createSky();
+      this.createLights();
+      this.createOceanAndBeach();
+      this.createPerimeterWalls();
+      this.buildBoardwalkAndPier();     // Bombsite A
+      this.buildTikiCabanasAndLagoon();  // Bombsite B
+      this.buildMidPromenade();          // Mid
+      this.buildTacticalProps();         // Crates, Umbrellas, Deck Chairs
+      this.buildPalmGroves();            // 3D Palm Trees
+      this.buildCoastalRocks();          // Boulders
+      this.buildSiteDecals();            // A & B Markings
+    } catch (e) {
+      console.error('[CSBeachMap] Error building beach map:', e);
+    } finally {
+      this.scene.add = origAdd;
+    }
   }
 
   // 1. Tropical Sky Dome
@@ -932,18 +936,22 @@ class CSDust2Map {
     this.mapGroup = new THREE.Group();
     this.scene.add(this.mapGroup);
 
-    this.createSky();
-    this.createLights();
-    this.createGroundAndBoundaries();
-    this.buildTSpawnAndSuicide();
-    this.buildLongDoorsAndLongA();
-    this.buildBombsiteA();
-    this.buildCatwalkAndShortA();
-    this.buildMidAndDoubleDoors();
-    this.buildTunnelsToB();
-    this.buildBombsiteB();
-    this.buildCTSpawn();
-    this.buildSiteDecals();
+    try {
+      this.createSky();
+      this.createLights();
+      this.createGroundAndBoundaries();
+      this.buildTSpawnAndSuicide();
+      this.buildLongDoorsAndLongA();
+      this.buildBombsiteA();
+      this.buildCatwalkAndShortA();
+      this.buildMidAndDoubleDoors();
+      this.buildTunnelsToB();
+      this.buildBombsiteB();
+      this.buildCTSpawn();
+      this.buildSiteDecals();
+    } catch (e) {
+      console.error('[CSDust2Map] Error building dust2 map:', e);
+    }
   }
 
   // 1. Desert Sky Dome
@@ -1630,20 +1638,24 @@ class CSMinecraftMap {
     const origAdd = this.scene.add.bind(this.scene);
     this.scene.add = (obj) => { this.mapGroup.add(obj); };
 
-    this.initMaterials();
-    this.createSky();
-    this.createLights();
-    this.createVoxelTerrain();
-    this.createPerimeterMountains();
-    this.buildVillageMid();            // Village Square with giant Oak Tree & Well
-    this.buildBombsiteA_NetherPortal(); // Bombsite A (Nether Portal Terrace & TNT Crate Fort)
-    this.buildBombsiteB_Mineshaft();    // Bombsite B (Quarry & Diamond Ore Bastion)
-    this.buildTSpawnFort();            // T Spawn Outpost
-    this.buildCTSpawnVillage();        // CT Spawn Townhall Gate
-    this.buildMinecraftTrees();        // Blocky Oak Trees throughout the map
-    this.buildTacticalProps();         // Stacked TNT, Crafting Tables, Torches
-
-    this.scene.add = origAdd;
+    try {
+      this.initMaterials();
+      this.createSky();
+      this.createLights();
+      this.createVoxelTerrain();
+      this.createPerimeterMountains();
+      this.buildVillageMid();            // Village Square with giant Oak Tree & Well
+      this.buildBombsiteA_NetherPortal(); // Bombsite A (Nether Portal Terrace & TNT Crate Fort)
+      this.buildBombsiteB_Mineshaft();    // Bombsite B (Quarry & Diamond Ore Bastion)
+      this.buildTSpawnFort();            // T Spawn Outpost
+      this.buildCTSpawnVillage();        // CT Spawn Townhall Gate
+      this.buildMinecraftTrees();        // Blocky Oak Trees throughout the map
+      this.buildTacticalProps();         // Stacked TNT, Crafting Tables, Torches
+    } catch (e) {
+      console.error('[CSMinecraftMap] Error building minecraft map:', e);
+    } finally {
+      this.scene.add = origAdd;
+    }
   }
 
   initMaterials() {
@@ -2347,14 +2359,18 @@ class CSUniversalMap {
     this.mapGroup = new THREE.Group();
     this.scene.add(this.mapGroup);
 
-    this.createLights();
-    this.createGroundAndBoundaries();
-    this.buildTwoLevelBridge();
-    this.buildSniperTowers();
-    this.buildNeonUndergroundPassage();
-    this.buildBombsiteA();
-    this.buildBombsiteB();
-    this.buildVoxelCoverProps();
+    try {
+      this.createLights();
+      this.createGroundAndBoundaries();
+      this.buildTwoLevelBridge();
+      this.buildSniperTowers();
+      this.buildNeonUndergroundPassage();
+      this.buildBombsiteA();
+      this.buildBombsiteB();
+      this.buildVoxelCoverProps();
+    } catch (e) {
+      console.error('[CSUniversalMap] Error building universal map:', e);
+    }
   }
 
   createLights() {
@@ -2822,10 +2838,11 @@ class CSPoolDayMap {
     this.mapGroup = new THREE.Group();
     this.scene.add(this.mapGroup);
 
-    const tex = window.csTextures;
+    try {
+      const tex = window.csTextures;
 
-    // 1. Lighting & Open Pool Facility Skylight
-    const ambient = new THREE.AmbientLight(0x70c0ff, 0.52);
+      // 1. Lighting & Open Pool Facility Skylight
+      const ambient = new THREE.AmbientLight(0x70c0ff, 0.52);
     this.mapGroup.add(ambient);
 
     const sun = new THREE.DirectionalLight(0xffffff, 1.25);
@@ -3012,6 +3029,9 @@ class CSPoolDayMap {
       this.mapGroup.add(mesh);
       this.colliders.push(new THREE.Box3().setFromObject(mesh));
     });
+  } catch (e) {
+    console.error('[CSPoolDayMap] Error building pool_day map:', e);
+  }
   }
 }
 
@@ -3084,7 +3104,9 @@ class CSAssaultMap {
   buildMap() {
     this.mapGroup = new THREE.Group();
     this.scene.add(this.mapGroup);
-    const tex = window.csTextures;
+
+    try {
+      const tex = window.csTextures;
 
     // 1. Atmosphere & Lighting
     const ambient = new THREE.AmbientLight(0x405568, 0.48);
@@ -3243,6 +3265,9 @@ class CSAssaultMap {
       this.mapGroup.add(mesh);
       this.colliders.push(new THREE.Box3().setFromObject(mesh));
     });
+    } catch (e) {
+      console.error('[CSAssaultMap] Error building assault map:', e);
+    }
   }
 }
 
@@ -3317,7 +3342,9 @@ class CSInfernoMap {
   buildMap() {
     this.mapGroup = new THREE.Group();
     this.scene.add(this.mapGroup);
-    const tex = window.csTextures;
+
+    try {
+      const tex = window.csTextures;
 
     // 1. Warm Italian Golden Hour Lighting
     const ambient = new THREE.AmbientLight(0xd18a68, 0.46);
@@ -3414,6 +3441,9 @@ class CSInfernoMap {
       this.mapGroup.add(mesh);
       this.colliders.push(new THREE.Box3().setFromObject(mesh));
     });
+    } catch (e) {
+      console.error('[CSInfernoMap] Error building inferno map:', e);
+    }
   }
 }
 
@@ -3486,7 +3516,9 @@ class CSAwpIndiaMap {
   buildMap() {
     this.mapGroup = new THREE.Group();
     this.scene.add(this.mapGroup);
-    const tex = window.csTextures;
+
+    try {
+      const tex = window.csTextures;
 
     const ambient = new THREE.AmbientLight(0xc68c53, 0.46);
     this.mapGroup.add(ambient);
@@ -3557,6 +3589,9 @@ class CSAwpIndiaMap {
       this.mapGroup.add(mesh);
       this.colliders.push(new THREE.Box3().setFromObject(mesh));
     });
+    } catch (e) {
+      console.error('[CSAwpIndiaMap] Error building awp_india map:', e);
+    }
   }
 }
 
@@ -3627,7 +3662,9 @@ class CSNukeMap {
   buildMap() {
     this.mapGroup = new THREE.Group();
     this.scene.add(this.mapGroup);
-    const tex = window.csTextures;
+
+    try {
+      const tex = window.csTextures;
 
     const ambient = new THREE.AmbientLight(0x405565, 0.46);
     this.mapGroup.add(ambient);
@@ -3722,6 +3759,9 @@ class CSNukeMap {
       this.mapGroup.add(mesh);
       this.colliders.push(new THREE.Box3().setFromObject(mesh));
     });
+    } catch (e) {
+      console.error('[CSNukeMap] Error building nuke map:', e);
+    }
   }
 }
 

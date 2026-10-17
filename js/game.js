@@ -150,19 +150,79 @@ class CSGame {
     });
   }
 
-  loadMap(mapName, rebuild = true) {
-    if (this.map && this.map.destroy) {
+  clearMap() {
+    if (this.map) {
       try {
-        this.map.destroy();
+        if (typeof this.map.destroy === 'function') {
+          this.map.destroy();
+        }
       } catch (err) {
         console.warn('[CS1.6] Error destroying previous map:', err);
       }
+      this.map = null;
     }
+
+    // Clean up any remaining objects in the scene that might have been added by previous maps or rounds
+    if (this.scene) {
+      const toRemove = [];
+      this.scene.children.forEach(child => {
+        // Keep camera, player viewmodel / meshes, bot models
+        const isPlayerObj = this.player && (child === this.player.mesh || child === this.player.weaponMesh || child === this.player.handsMesh);
+        const isBotObj = this.bots && this.bots.some(b => b.meshGroup === child || b.mesh === child);
+        if (!isPlayerObj && !isBotObj && child !== this.camera) {
+          toRemove.push(child);
+        }
+      });
+      toRemove.forEach(obj => {
+        try {
+          if (obj.geometry && obj.geometry.dispose) obj.geometry.dispose();
+          if (obj.material) {
+            if (Array.isArray(obj.material)) obj.material.forEach(m => m && m.dispose && m.dispose());
+            else if (obj.material.dispose) obj.material.dispose();
+          }
+        } catch (e) {}
+        this.scene.remove(obj);
+      });
+    }
+
+    if (this.plantedBombMesh && this.scene) {
+      this.scene.remove(this.plantedBombMesh);
+      this.plantedBombMesh = null;
+    }
+    if (this.droppedBombMesh && this.scene) {
+      this.scene.remove(this.droppedBombMesh);
+      this.droppedBombMesh = null;
+    }
+    if (this.droppedWeapons && this.scene) {
+      this.droppedWeapons.forEach(w => {
+        if (w.mesh) this.scene.remove(w.mesh);
+      });
+      this.droppedWeapons = [];
+    }
+    if (this.particles && this.scene) {
+      this.particles.forEach(p => {
+        if (p.mesh) this.scene.remove(p.mesh);
+      });
+      this.particles = [];
+    }
+    if (this.tracers && this.scene) {
+      this.tracers.forEach(t => {
+        if (t.mesh) this.scene.remove(t.mesh);
+      });
+      this.tracers = [];
+    }
+  }
+
+  loadMap(mapName, rebuild = true) {
+    this.clearMap();
 
     let norm = (mapName || 'dust2').toLowerCase().trim();
     if (norm.startsWith('de_')) norm = norm.substring(3);
     else if (norm.startsWith('cs_')) norm = norm.substring(3);
     else if (norm.startsWith('fy_')) norm = norm.substring(3);
+    if (norm === 'dust' || norm === 'dust_2') norm = 'dust2';
+    if (norm === 'poolday' || norm === 'pool') norm = 'pool_day';
+    if (norm === 'india') norm = 'awp_india';
 
     this.selectedMap = norm;
     localStorage.setItem('cs_game_map', norm);
@@ -210,9 +270,14 @@ class CSGame {
       this.map.buildMap();
     } catch (err) {
       console.error(`[CS1.6] Error building map "${norm}", falling back to Dust II:`, err);
-      this.scene.fog = new THREE.FogExp2(0x3a7bd5, 0.0016);
-      this.map = new window.CSDust2Map(this.scene);
-      this.map.buildMap();
+      try {
+        this.clearMap();
+        this.scene.fog = new THREE.FogExp2(0x3a7bd5, 0.0016);
+        this.map = new window.CSDust2Map(this.scene);
+        this.map.buildMap();
+      } catch (fallbackErr) {
+        console.error('[CS1.6] Fallback Dust2 also failed:', fallbackErr);
+      }
     }
 
     // Update real map name in HUD (top-left) & Scoreboard
@@ -966,6 +1031,9 @@ class CSGame {
         // When paused (after ESC) or match is in progress, immediately reload and start the selected map!
         if (this.isPaused || this.isGameStarted) {
           this.restartMatch(this.selectedMap);
+        } else {
+          // In lobby: dynamically preview the selected 3D map in background
+          this.loadMap(this.selectedMap, false);
         }
       });
     });
@@ -1280,7 +1348,23 @@ class CSGame {
     }
 
     if (mapTitleEl) {
-      mapTitleEl.textContent = `DE_${mapName.toUpperCase()}`;
+      let normTitle = (mapName || 'dust2').toLowerCase().trim();
+      if (normTitle.startsWith('de_')) normTitle = normTitle.substring(3);
+      else if (normTitle.startsWith('cs_')) normTitle = normTitle.substring(3);
+      else if (normTitle.startsWith('fy_')) normTitle = normTitle.substring(3);
+
+      const titleMap = {
+        minecraft: 'DE_MINECRAFT',
+        beach: 'DE_BEACH',
+        pool_day: 'FY_POOL_DAY',
+        inferno: 'DE_INFERNO',
+        assault: 'CS_ASSAULT',
+        nuke: 'DE_NUKE',
+        awp_india: 'AWP_INDIA',
+        universal: 'DE_UNIVERSAL',
+        dust2: 'DE_DUST2'
+      };
+      mapTitleEl.textContent = titleMap[normTitle] || `DE_${normTitle.toUpperCase()}`;
     }
 
     if (mapDescEl) {
